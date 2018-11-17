@@ -43,5 +43,8 @@ namespace FS_Emulator
         {
             clusterSize = (FSClusterSize)(sender as ComboBox).SelectedValue;
         }
+
+
+        // Ok, it's time to rest and next to process real creating my FS
     }
 }
