@@ -52,8 +52,22 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormCreateFS.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormCreateFS.Designer.cs">
+      <DependentUpon>FormCreateFS.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FSClusterSize.cs" />
+    <Compile Include="FSSizeUnits.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Form1.resx">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormCreateFS.resx">
+      <DependentUpon>FormCreateFS.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
