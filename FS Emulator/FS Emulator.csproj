@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -46,6 +47,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FSTools\ExtraConverters.cs" />
+    <Compile Include="FSTools\MeasureConverters\Bytes.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -60,6 +63,11 @@
     </Compile>
     <Compile Include="FSClusterSize.cs" />
     <Compile Include="FSSizeUnits.cs" />
+    <Compile Include="FSTools\FS.cs" />
+    <Compile Include="FSTools\MeasureConverters\Gigabytes.cs" />
+    <Compile Include="FSTools\MeasureConverters\Kilobytes.cs" />
+    <Compile Include="FSTools\MeasureConverters\Megabytes.cs" />
+    <Compile Include="FSTools\Structs\User.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
@@ -90,5 +98,6 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

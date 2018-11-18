@@ -17,20 +17,28 @@ namespace FS_Emulator
             InitializeComponent();
         }
 
-        int FSCapacity = 4;
-        FSClusterSize clusterSize = FSClusterSize.KB4;
+        int FSCapacity;
+        FSClusterSize clusterSize;
+        string pathToSave = @"E:\ForFS\FS";
 
         private void FormCreateFS_Load(object sender, EventArgs e)
         {
             cbox_ClusterSize.DataSource = Enum.GetValues(typeof(FSClusterSize));
             
-            cbox_ClusterSize.SelectedIndex = (int)FSClusterSize.KB4;
+            cbox_ClusterSize.SelectedIndex = (int)FSClusterSize._1KB;
         }
 
         private void TBSelectPathToSave_Click(object sender, EventArgs e)
         {
             var dialog = new SaveFileDialog();
-            dialog.ShowDialog();
+            dialog.CheckPathExists = true;
+            dialog.InitialDirectory = @"E:\ForFS";
+            var result = dialog.ShowDialog();
+
+            if(result == DialogResult.OK)
+            {
+                PathToSaveTB.Text = dialog.FileName;
+            }            
 
         }
 
@@ -44,7 +52,14 @@ namespace FS_Emulator
             clusterSize = (FSClusterSize)(sender as ComboBox).SelectedValue;
         }
 
+        private void BtOK_Click(object sender, EventArgs e)
+        {
+            FSTools.FS.Create(pathToSave, FSCapacity, 512);
+        }
 
-        // Ok, it's time to rest and next to process real creating my FS
+        private void PathToSaveTB_TextChanged(object sender, EventArgs e)
+        {
+            pathToSave = (sender as TextBox).Text;
+        }
     }
 }

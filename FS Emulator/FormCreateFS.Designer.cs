@@ -84,7 +84,8 @@
             this.PathToSaveTB.ReadOnly = true;
             this.PathToSaveTB.Size = new System.Drawing.Size(193, 20);
             this.PathToSaveTB.TabIndex = 5;
-            this.PathToSaveTB.Text = "E:\\ForFS";
+            this.PathToSaveTB.Text = "E:\\ForFS\\FS";
+            this.PathToSaveTB.TextChanged += new System.EventHandler(this.PathToSaveTB_TextChanged);
             // 
             // TBSelectPathToSave
             // 
@@ -104,6 +105,7 @@
             this.BtOK.TabIndex = 8;
             this.BtOK.Text = "Ок";
             this.BtOK.UseVisualStyleBackColor = true;
+            this.BtOK.Click += new System.EventHandler(this.BtOK_Click);
             // 
             // numericUpDown1
             // 
