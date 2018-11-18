@@ -7,14 +7,16 @@ using System.Threading.Tasks;
 
 namespace FS_Emulator.FSTools.Structs
 {
-    internal struct User
+    [Serializable]
+    internal struct UserRecord
     {
         public short User_id;
         public byte[] Name;
         public byte[] Login;
         public byte[] PasswordHash;
 
-        public User(short user_id, string name, string login, string password)
+
+        public UserRecord(short user_id, string name, string login, string password)
         {
             User_id = user_id;
             Name = Encoding.ASCII.GetBytes(name) ?? throw new ArgumentNullException(nameof(name));

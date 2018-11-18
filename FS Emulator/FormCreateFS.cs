@@ -17,7 +17,7 @@ namespace FS_Emulator
             InitializeComponent();
         }
 
-        int FSCapacity;
+        int FSCapacity = 4;
         FSClusterSize clusterSize;
         string pathToSave = @"E:\ForFS\FS";
 
@@ -30,10 +30,12 @@ namespace FS_Emulator
 
         private void TBSelectPathToSave_Click(object sender, EventArgs e)
         {
-            var dialog = new SaveFileDialog();
-            dialog.CheckPathExists = true;
-            dialog.InitialDirectory = @"E:\ForFS";
-            var result = dialog.ShowDialog();
+			var dialog = new SaveFileDialog
+			{
+				CheckPathExists = true,
+				InitialDirectory = @"E:\ForFS"
+			};
+			var result = dialog.ShowDialog();
 
             if(result == DialogResult.OK)
             {
