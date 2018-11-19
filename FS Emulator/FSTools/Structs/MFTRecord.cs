@@ -8,28 +8,54 @@ namespace FS_Emulator.FSTools.Structs
 {
 	public struct MFTRecord
 	{
-		private bool IsFileExists;
-		private byte[] FileName; // длина - 50 симв.
-		private byte[] Path; // 206 симв.
-		private FileType FileType;
-		int DataUnitSize; /*Для текста - 1B, для MFT, например, 1024B*/
-		private long Time_Creation;
-		private long Time_Modification;
-		private int Size;
-		
-		#region flags
-		private bool IsSystem;
-		private bool IsHidden;
-		#endregion
-		private UserRight[] User_Rights; // 64 - max
-		private byte[] Data; // все, что останется от 1 КБ. 1024-237 = 787
+		public const int SpaceForData = 769;
+		public const int SizeInBytes = 1024;
 
-		public MFTRecord(string fileName, string path, FileType fileType, int dataUnitSize, DateTime time_Creation, DateTime time_Modification, bool isSystem, bool isHidden, UserRight[] user_Rights)
+		public int Index;
+		public bool IsFileExists;
+		/// <summary>
+		/// Где начинаются данные файла. Если -1, то файл полностью в MFT.
+		/// </summary>
+		public int Number_FirstBlock;
+		public byte[] FileName; // длина - 50 симв.
+		public byte[] Path; // 206 симв.
+		public FileType FileType;
+		public int DataUnitSize; /*Для текста - 1B, для MFT, например, 1024B*/
+		public long Time_Creation;
+		public long Time_Modification;
+		public int Size;
+
+		#region flags
+		public bool IsSystem;
+		public bool IsHidden;
+		#endregion
+		public UserRight[] User_Rights; // 64 - max
+		public byte[] Data; // все, что останется от 1 КБ. 1024-237 = MFTRecord.SpaceForData
+
+		public MFTRecord(int index, string fileName, string path, FileType fileType, int dataUnitSize, DateTime time_Creation, DateTime time_Modification, bool isSystem, bool isHidden, UserRight[] user_Rights, byte[] data = null, int number_FirstBlock = -1)
 		// без / и           с / в конце. Если нет - добавлю.
 		{
+			Index = index;
+
 			IsFileExists = true;
 			Size = 0;
-			Data = new byte[787];
+			Number_FirstBlock = number_FirstBlock;
+
+			if (data != null)
+			{
+				// Надеюсь, я не додумаюсь СОЗДАТЬ файл с >MFTRecord.SpaceForData байт.
+				if (data.Length > MFTRecord.SpaceForData)
+					throw new ArgumentException("Слишком большая длина data для создания записи MFT", nameof(data));
+				Data = data;
+			}
+			else
+			{
+				// to-do: расположить данные на "диске", раз уж них есть Number_FirstBlock.
+
+				Data = new byte[MFTRecord.SpaceForData];
+			}
+
+
 
 			if (fileName == null)
 				throw new ArgumentNullException(nameof(fileName));
@@ -51,7 +77,7 @@ namespace FS_Emulator.FSTools.Structs
 				if (path.Last() != '/')
 					path = path + '/';
 			}
-			
+
 			Path = Encoding.ASCII.GetBytes(path);
 			if (FileName.Length > 206)
 				throw new ArgumentException("Упс, путь слишком длииинный", nameof(path));
@@ -83,6 +109,7 @@ namespace FS_Emulator.FSTools.Structs
 		{ // сейчас это toBytes без Data. Специально чтоб вычислить размер Data.
 
 			var list = new List<byte>();
+			list.AddRange(BitConverter.GetBytes(Index));
 			list.AddRange(BitConverter.GetBytes(IsFileExists));
 			list.AddRange(FileName);
 			list.AddRange(Path);
@@ -99,6 +126,7 @@ namespace FS_Emulator.FSTools.Structs
 			return list.ToArray();
 		}
 
+		//to-do: FromBytes. Хотя бы для удобного теста.
 
 	}
 }

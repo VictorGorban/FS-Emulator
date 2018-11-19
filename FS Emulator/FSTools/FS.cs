@@ -13,6 +13,17 @@ namespace FS_Emulator.FSTools
 	public class FS
 	{
 		public static int FSNameSize = 30;
+		public static int MaxNumber_Users = 64;
+		public static int MaxFiles = 0;
+		public static int FilesCount = 0;
+		/* макс. кол-во MFT-записей. 
+		 * Вычислить через <spaceForMFTZone> - (<spaceForUsers (всегда одинаковое)> + <spaceForList_Blocks>) 
+		 * => (blocks)spaceForMFT 
+		 * => / (bytes)size_Block 
+		 * => (bytes) spaceForMFT / 1024 
+		 * => maxFiles */
+
+
 
 
 		public static FileStream Open(string path)
@@ -25,9 +36,8 @@ namespace FS_Emulator.FSTools
 		public static FileStream Create(string path, int capacityInMegabytes, int blockSizeInBytes)
 		{
 			// создать пространство для BlocksFreeOrBusy
-			var ZoneOfFreeOrUsedBlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
-			int blocksCountForZoneOfFreeOrUsedBlocks = GetBlockCountForBytes(blockSizeInBytes, ZoneOfFreeOrUsedBlocksBytes.Length);
-			// to-do: закончить переименовв
+			var zoneOfFreeOrUsedBlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
+			int blocksCountForZoneOfFreeOrUsedBlocks = GetBlockCountForBytes(blockSizeInBytes, zoneOfFreeOrUsedBlocksBytes.Length);
 
 
 			// создать Service
@@ -41,21 +51,12 @@ namespace FS_Emulator.FSTools
 
 
 			// создать MFT
-			var MFTZoneBytes = GetNewMFTZoneBytes();
-			int blocksCountForMFTZone = GetBlockCountForBytes(ZoneOfFreeOrUsedBlocksBytes.Length / 10, blockSizeInBytes);
-
-			/*to-do:
-			 1) Create MFT file
-			 2) Create other files
-			 3) Create root dir (root/)
-			 Я все равно не хочу делать папку для MFT файлов. Ну их.*/
+			var MFTZoneBytes = GetNewMFTZoneBytes(blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, zoneOfFreeOrUsedBlocksBytes);
+			int blocksCountForMFTZone = GetBlockCountForBytes(zoneOfFreeOrUsedBlocksBytes.Length / 10, blockSizeInBytes);
+			/*Теперь, когда у нас есть MFT с RootDir, надо сделать
+			 AlterFile(Service), AlterFile(Users)*/
 
 
-
-			// "вручную" заполнить MFT (RegisterFile(BlockStart, Size) вместо CreateFile)
-			// наверное, лучше так:
-			// 1) создать все пустое
-			// 2) Зарегать файлы (типа SystemTools.RegisterDataAsFile(string name, long blockStart, long lengthInBlocks))
 
 
 			FileStream file;
@@ -85,12 +86,74 @@ namespace FS_Emulator.FSTools
 			return bytes.ToArray();
 		}
 
-		private static byte[] GetNewMFTZoneBytes()
+		private static byte[] GetNewMFTZoneBytes(int blockSizeInBytes, int capacityInMegabytes, byte[] serviceZoneBytes, byte[] usersBytes, byte[] list_BlocksBytes)
 		{
-			var firstMftRecord = new MFTRecord("$MFT", "", FileType.Bin, 1024, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) });
+			/*Короч, я понял.
+			 Вручную:
+			 заполняю RootDir with MFT
+			 MFT*/
+			#region Заполнение данных rootDir
+			var fileHeaders = new FileHeader[] {
+				new FileHeader(1,"$MFT".ToASCIIBytes(50)),
+				new FileHeader(2,"$Service".ToASCIIBytes(50)),
+				new FileHeader(3,"$Users".ToASCIIBytes(50)),
+				new FileHeader(4,"$List_Blocks".ToASCIIBytes(50))
+			};
+
+			var listHeadersBytes = new List<byte>();
+			foreach (var header in fileHeaders)
+			{
+				listHeadersBytes.AddRange(header.ToBytes());
+			}
+			#endregion
+
+			#region Заполнение записей MFT
+			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, listHeadersBytes.ToArray());
+			var ServiceRecord = new MFTRecord(2, "$Service", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, serviceZoneBytes);
+
+			//в самом начале
+			var List_BlocksRecord = new MFTRecord(3, "$List_Blocks", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, list_BlocksBytes, 0);
+			var blocksCountForZoneOfList_Blocks = GetBlockCountForBytes(blockSizeInBytes, list_BlocksBytes.Length);
+			//сразу после list_Blocks
+			var UsersRecord = new MFTRecord(4, "$List_Blocks", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, usersBytes, blocksCountForZoneOfList_Blocks);
 
 
-			return firstMftRecord.ToBytes();
+			// to-do: MFT находится после List_Blocks и Users, так что надо отдать сюда номер блока.
+			// для Users - фиксированная длина! (MaxNumber_Users*UserRecord.SizeInBytes)
+			var blocksCountForUsers = GetBlockCountForBytes(blockSizeInBytes, MaxNumber_Users * UserRecord.SizeInBytes);
+			var blockNumberForMFT = blocksCountForZoneOfList_Blocks + blocksCountForUsers;
+
+			
+
+			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, null, blockNumberForMFT);
+
+			var listMFTBytes = new List<byte>();
+			listMFTBytes.AddRange(RootDirRecord.ToBytes());
+			listMFTBytes.AddRange(MftRecord.ToBytes());
+			listMFTBytes.AddRange(ServiceRecord.ToBytes());
+			listMFTBytes.AddRange(List_BlocksRecord.ToBytes());
+			listMFTBytes.AddRange(UsersRecord.ToBytes());
+			var MFTBytes = listMFTBytes.ToArray();
+
+			int blocksCountForMFTZone = GetBlockCountForBytes(list_BlocksBytes.Length / 10, blockSizeInBytes);
+
+			// to-do: у меня есть номер блока, куда писать. Теперь мне просто надо записать туда эти данные. Вручную, да
+			// 1) List_Blocks
+			// 2) Users
+			// 3) MFT
+
+
+
+			#endregion
+
+
+
+
+
+
+			var listBytes = new List<byte>();
+
+			return listBytes.ToArray();
 		}
 
 		private static int GetBlockCountForBytes(int blockSizeInBytes, int bytesCount)
@@ -179,7 +242,7 @@ namespace FS_Emulator.FSTools
 
 
 
-		public static void CreateFile(long blockStart, long size/*in bytes*/, string name, string where/*path*/, FileType fileType, int size_Unit = 1, byte[] data = null)
+		public static void CreateFile(long blockStart, long size/*in bytes*/, string name, string path, FileType fileType, int size_Unit = 1, byte[] data = null)
 		{
 			if (data == null)
 				data = new byte[0];
@@ -205,6 +268,23 @@ namespace FS_Emulator.FSTools
 		{
 
 		}
+
+		public static void ModifyFile(byte[] path, byte[] fileName, byte[] newData)
+		{
+			// Нда уж, вот тут придется подумать. Что, если файл полностью вмещается в его же пространство (и пространство после него?)
+			/* А ведь это идеальная ситуация. 
+			 * (Да хрен там, не будет такого. 
+			 * Под файл выделился блок - и все. Остальные записываются сразу после него. Тупо, но проще. )
+			 * */
+
+		}
+
+		//public static void AppendDataToFile(byte[] path, byte[] fileName, byte[] newData)
+		//{
+
+		//}
+
+
 
 	}
 }

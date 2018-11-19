@@ -8,8 +8,11 @@ using System.Threading.Tasks;
 namespace FS_Emulator.FSTools.Structs
 {
     [Serializable]
-    internal struct UserRecord
+    public struct UserRecord
     {
+		public const int SizeInBytes = 126;
+
+
         public short User_id;
         public byte[] Name;
         public byte[] Login;

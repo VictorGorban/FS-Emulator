@@ -38,5 +38,10 @@ namespace FS_Emulator.FSTools
             var second = int.Parse(s.Substring(12, 2));
             return new DateTime(year, month, day, hour, minute, second);
         }
-    }
+
+		public static byte[] ToASCIIBytes(this string str, int requiredCountOfBytes)
+		{
+			return Encoding.ASCII.GetBytes(str).TrimOrExpandTo(requiredCountOfBytes);
+		}
+	}
 }
