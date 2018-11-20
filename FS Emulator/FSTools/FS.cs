@@ -36,8 +36,8 @@ namespace FS_Emulator.FSTools
 		public static FileStream Create(string path, int capacityInMegabytes, int blockSizeInBytes)
 		{
 			// создать пространство для BlocksFreeOrBusy
-			var zoneOfFreeOrUsedBlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
-			int blocksCountForZoneOfFreeOrUsedBlocks = GetBlockCountForBytes(blockSizeInBytes, zoneOfFreeOrUsedBlocksBytes.Length);
+			var list_BlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
+			int blocksCountForZoneOfFreeOrUsedBlocks = GetBlockCountForBytes(blockSizeInBytes, list_BlocksBytes.Length);
 
 
 			// создать Service
@@ -51,8 +51,8 @@ namespace FS_Emulator.FSTools
 
 
 			// создать MFT
-			var MFTZoneBytes = GetNewMFTZoneBytes(blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, zoneOfFreeOrUsedBlocksBytes);
-			int blocksCountForMFTZone = GetBlockCountForBytes(zoneOfFreeOrUsedBlocksBytes.Length / 10, blockSizeInBytes);
+			var MFTZoneBytes = GetNewMFTZoneBytes(blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes);
+			int blocksCountForMFTZone = GetBlockCountForBytes(list_BlocksBytes.Length / 10, blockSizeInBytes);
 			/*Теперь, когда у нас есть MFT с RootDir, надо сделать
 			 AlterFile(Service), AlterFile(Users)*/
 
@@ -107,26 +107,50 @@ namespace FS_Emulator.FSTools
 			}
 			#endregion
 
-			#region Заполнение записей MFT
-			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, listHeadersBytes.ToArray());
-			var ServiceRecord = new MFTRecord(2, "$Service", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, serviceZoneBytes);
+			#region Создание записей MFT
+			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new[] { new UserRight(0, Right.RW) }, listHeadersBytes.ToArray());
+			var ServiceRecord = new MFTRecord(2, "$Service", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new[] { new UserRight(0, Right.RW) }, serviceZoneBytes);
 
-			//в самом начале
-			var List_BlocksRecord = new MFTRecord(3, "$List_Blocks", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, list_BlocksBytes, 0);
+			#region List_blocks
 			var blocksCountForZoneOfList_Blocks = GetBlockCountForBytes(blockSizeInBytes, list_BlocksBytes.Length);
-			//сразу после list_Blocks
-			var UsersRecord = new MFTRecord(4, "$List_Blocks", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, usersBytes, blocksCountForZoneOfList_Blocks);
 
+			var dataForList_BlocksRecordBytes = new List<byte>();
+			dataForList_BlocksRecordBytes.AddRange(BitConverter.GetBytes(0));
+			dataForList_BlocksRecordBytes.AddRange(BitConverter.GetBytes(blocksCountForZoneOfList_Blocks));
 
-			// to-do: MFT находится после List_Blocks и Users, так что надо отдать сюда номер блока.
-			// для Users - фиксированная длина! (MaxNumber_Users*UserRecord.SizeInBytes)
-			var blocksCountForUsers = GetBlockCountForBytes(blockSizeInBytes, MaxNumber_Users * UserRecord.SizeInBytes);
-			var blockNumberForMFT = blocksCountForZoneOfList_Blocks + blocksCountForUsers;
+			var List_BlocksRecord = new MFTRecord(3, "$List_Blocks", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForList_BlocksRecordBytes.ToArray(), isNotInMFT: true);
+			#endregion
 
-			
+			#region Users
 
-			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, true, true, new[] { new UserRight(0, Right.RW) }, null, blockNumberForMFT);
+			var blockUsersRecordFrom = blocksCountForZoneOfList_Blocks;
+			int blocksCountForUsersZone = GetBlockCountForBytes(blockSizeInBytes, UserRecord.SizeInBytes*MaxNumber_Users);
+			var blockUsersRecordTo = blockUsersRecordFrom + blocksCountForUsersZone;
 
+			var dataForUsersRecordBytes = new List<byte>();
+			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersRecordFrom));
+			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersRecordTo));
+
+			var UsersRecord = new MFTRecord(4, "$List_Blocks", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForUsersRecordBytes.ToArray(), isNotInMFT: true);
+			#endregion
+
+			#region MFT
+			var blockMFTRecordFrom = blockUsersRecordTo;
+			var bytesForMFTRecords = Bytes.FromKilobytes(5);
+			var blockMFTRecordTo = bytesForMFTRecords / blockSizeInBytes;
+			if (bytesForMFTRecords % blockSizeInBytes != 0)
+				blockMFTRecordTo += 1;
+
+			var dataForMFTRecordBytes = new List<byte>();
+			dataForMFTRecordBytes.AddRange(BitConverter.GetBytes(blockMFTRecordFrom));
+			dataForMFTRecordBytes.AddRange(BitConverter.GetBytes(blockMFTRecordTo));
+
+			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForMFTRecordBytes.ToArray(), isNotInMFT: true);
+			#endregion
+
+			#endregion
+
+			#region Создание исходных данных в MFT
 			var listMFTBytes = new List<byte>();
 			listMFTBytes.AddRange(RootDirRecord.ToBytes());
 			listMFTBytes.AddRange(MftRecord.ToBytes());
@@ -134,23 +158,35 @@ namespace FS_Emulator.FSTools
 			listMFTBytes.AddRange(List_BlocksRecord.ToBytes());
 			listMFTBytes.AddRange(UsersRecord.ToBytes());
 			var MFTBytes = listMFTBytes.ToArray();
+			#endregion
 
-			int blocksCountForMFTZone = GetBlockCountForBytes(list_BlocksBytes.Length / 10, blockSizeInBytes);
+			// Так, теперь надо записать весь этот кошмар на "диск".
+			// Сначала List_Blocks, потом Users, и наконец MFT. Начальные блоки у меня есть, вперед. 
 
-			// to-do: у меня есть номер блока, куда писать. Теперь мне просто надо записать туда эти данные. Вручную, да
+			var usersZoneBytes = GetNewUsersZoneBytes();
+			// такое имя из-за того, что раньше в этом методе я уже это имя юзал.
+			var list_BlocksBlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
+
+
+			// to-do: у меня все номера блоков, куда писать. Теперь мне просто надо записать туда эти данные. Вручную, да
 			// 1) List_Blocks
 			// 2) Users
 			// 3) MFT
 
 
-
-			#endregion
-
-
+			/*Камон, да я ж делал это уже!!! 
+			 * Просто Position устанавливать, да и все. Всего 3 раза. 3!!!*/
 
 
 
 
+
+
+
+
+
+
+			// все, что дальше - Obsolete. Я использую этот метод как CreateNewMFTZone.
 			var listBytes = new List<byte>();
 
 			return listBytes.ToArray();

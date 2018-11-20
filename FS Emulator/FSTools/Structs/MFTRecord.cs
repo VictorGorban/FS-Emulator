@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace FS_Emulator.FSTools.Structs
 {
-	public struct MFTRecord
+	public partial struct MFTRecord
 	{
-		public const int SpaceForData = 769;
+		public const int SpaceForData = 773;
 		public const int SizeInBytes = 1024;
 
 		public int Index;
@@ -16,7 +16,7 @@ namespace FS_Emulator.FSTools.Structs
 		/// <summary>
 		/// Где начинаются данные файла. Если -1, то файл полностью в MFT.
 		/// </summary>
-		public int Number_FirstBlock;
+		public bool IsNotInMFT;
 		public byte[] FileName; // длина - 50 симв.
 		public byte[] Path; // 206 симв.
 		public FileType FileType;
@@ -26,20 +26,20 @@ namespace FS_Emulator.FSTools.Structs
 		public int Size;
 
 		#region flags
-		public bool IsSystem;
-		public bool IsHidden;
+		public byte Flags; // [0] - IsUnfragmented, [3] - IsSystem, [4] - IsHidden		
 		#endregion
 		public UserRight[] User_Rights; // 64 - max
 		public byte[] Data; // все, что останется от 1 КБ. 1024-237 = MFTRecord.SpaceForData
 
-		public MFTRecord(int index, string fileName, string path, FileType fileType, int dataUnitSize, DateTime time_Creation, DateTime time_Modification, bool isSystem, bool isHidden, UserRight[] user_Rights, byte[] data = null, int number_FirstBlock = -1)
+		public MFTRecord(int index, string fileName, string path, FileType fileType, int dataUnitSize, DateTime time_Creation, DateTime time_Modification, byte flags, UserRight[] user_Rights, byte[] data = null, bool isNotInMFT = false)
 		// без / и           с / в конце. Если нет - добавлю.
 		{
 			Index = index;
 
 			IsFileExists = true;
 			Size = 0;
-			Number_FirstBlock = number_FirstBlock;
+			IsNotInMFT = isNotInMFT;
+			Flags = flags;
 
 			if (data != null)
 			{
@@ -91,8 +91,7 @@ namespace FS_Emulator.FSTools.Structs
 			DataUnitSize = dataUnitSize;
 			Time_Creation = time_Creation.ToLong();
 			Time_Modification = time_Modification.ToLong();
-			IsSystem = isSystem;
-			IsHidden = isHidden;
+			
 
 			User_Rights = user_Rights;
 			if (User_Rights.Length > 64)
@@ -118,15 +117,11 @@ namespace FS_Emulator.FSTools.Structs
 			list.AddRange(BitConverter.GetBytes(Time_Creation));
 			list.AddRange(BitConverter.GetBytes(Time_Modification));
 			list.AddRange(BitConverter.GetBytes(Size));
-			list.AddRange(BitConverter.GetBytes(IsSystem));
-			list.AddRange(BitConverter.GetBytes(IsHidden));
+			list.AddRange(BitConverter.GetBytes(Flags));
 			list.AddRange(Data);
 
 
 			return list.ToArray();
 		}
-
-		//to-do: FromBytes. Хотя бы для удобного теста.
-
 	}
 }
