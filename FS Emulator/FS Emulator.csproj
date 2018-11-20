@@ -69,6 +69,7 @@
     <Compile Include="FSTools\MeasureConverters\Gigabytes.cs" />
     <Compile Include="FSTools\MeasureConverters\Kilobytes.cs" />
     <Compile Include="FSTools\MeasureConverters\Megabytes.cs" />
+    <Compile Include="FSTools\ServiceRecord.cs" />
     <Compile Include="FSTools\Structs\FileHeader.cs" />
     <Compile Include="FSTools\Structs\FileType.cs" />
     <Compile Include="FSTools\Structs\MFTRecord.cs" />

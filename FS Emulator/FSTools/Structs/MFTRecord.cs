@@ -8,7 +8,7 @@ namespace FS_Emulator.FSTools.Structs
 {
 	public partial struct MFTRecord
 	{
-		public const int SpaceForData = 773;
+		public const int SpaceForData = 737;
 		public const int SizeInBytes = 1024;
 
 		public int Index;
@@ -46,7 +46,7 @@ namespace FS_Emulator.FSTools.Structs
 				// Надеюсь, я не додумаюсь СОЗДАТЬ файл с >MFTRecord.SpaceForData байт.
 				if (data.Length > MFTRecord.SpaceForData)
 					throw new ArgumentException("Слишком большая длина data для создания записи MFT", nameof(data));
-				Data = data;
+				Data = data.TrimOrExpandTo(SpaceForData);
 			}
 			else
 			{
@@ -79,11 +79,11 @@ namespace FS_Emulator.FSTools.Structs
 			}
 
 			Path = Encoding.ASCII.GetBytes(path);
-			if (FileName.Length > 206)
+			if (Path.Length > 206)
 				throw new ArgumentException("Упс, путь слишком длииинный", nameof(path));
-			if (FileName.Length < 206)
+			if (Path.Length < 206)
 			{
-				FileName = FileName.TrimOrExpandTo(206);
+				Path = Path.TrimOrExpandTo(206);
 			}
 
 
@@ -117,11 +117,13 @@ namespace FS_Emulator.FSTools.Structs
 			list.AddRange(BitConverter.GetBytes(Time_Creation));
 			list.AddRange(BitConverter.GetBytes(Time_Modification));
 			list.AddRange(BitConverter.GetBytes(Size));
-			list.AddRange(BitConverter.GetBytes(Flags));
+			list.Add(Flags);
 			list.AddRange(Data);
 
 
 			return list.ToArray();
 		}
+
+
 	}
 }

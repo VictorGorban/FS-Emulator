@@ -33,44 +33,50 @@ namespace FS_Emulator.FSTools
 
 
 
-		public static FileStream Create(string path, int capacityInMegabytes, int blockSizeInBytes)
+		public static void FormatOrCreate(string path, int capacityInMegabytes, int blockSizeInBytes)
 		{
-			// создать пространство для BlocksFreeOrBusy
-			var list_BlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
-			int blocksCountForZoneOfFreeOrUsedBlocks = GetBlockCountForBytes(blockSizeInBytes, list_BlocksBytes.Length);
-
-
 			// создать Service
+			// to-do: создать структуру.
 			var serviceZoneBytes = GetNewServiceZoneInBytes(blockSizeInBytes);
-			int blocksCountForServiceZone = GetBlockCountForBytes(blockSizeInBytes, serviceZoneBytes.Length);
 
+			// создать BlocksFreeOrBusy
+			var list_BlocksBytes = GetNewBlocksFreeOrUsedZoneBytes(capacityInMegabytes, blockSizeInBytes);
+			int blocksCountForZoneOfFreeOrUsedBlocks = GetBlockCountForBytes(blockSizeInBytes, list_BlocksBytes.Length);
 
 			// создать Users
 			var usersZoneBytes = GetNewUsersZoneBytes();
 			int blocksCountForUsersZone = GetBlockCountForBytes(blockSizeInBytes, usersZoneBytes.Length);
 
 
-			// создать MFT
-			var MFTZoneBytes = GetNewMFTZoneBytes(blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes);
-			int blocksCountForMFTZone = GetBlockCountForBytes(list_BlocksBytes.Length / 10, blockSizeInBytes);
-			/*Теперь, когда у нас есть MFT с RootDir, надо сделать
-			 AlterFile(Service), AlterFile(Users)*/
-
-
-
-
-			FileStream file;
-			using (file = File.Create(path, blockSizeInBytes))
+			try
 			{
-				file.SetLength(Bytes.FromMegabytes(capacityInMegabytes));
-				//Записываю файлы, но учитываю смещение.
+				FormatFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes);
 
-				file.Write(serviceZoneBytes, 0, serviceZoneBytes.Length);
 
+				if (!TestFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes)) System.Windows.Forms.MessageBox.Show("Кошмааар!!!");;
 
 			}
+			catch (IOException)
+			{
+				System.Windows.Forms.MessageBox.Show("Не удается создать или записать файл.");
+				
+			}
 
-			return file;
+		}
+		/// <summary>
+		/// Нужен только для теста.
+		/// </summary>
+		private static bool TestFSFile(string path, int blockSizeInBytes, int capacityInMegabytes, byte[] serviceZoneBytes, byte[] usersZoneBytes, byte[] list_BlocksBytes)
+		{
+			// открываю файл, считываю зоны через MFT (т.е. стандартная функция, которую еще надо сделать) и сравниваю байты с ToBytes() моих структур.
+
+			// Зачем мне это нужно? Проверить считывание через MFT. И то, не забыл ли я чего.
+
+			// Блин, а ведь Size-то подобавлять в MFT я и забыл. Самое время это исправить на паре. 
+			// В алгоритме все в порядке (точно), надо Size присвоить после создания записи MFT. Все равно новая MFT запись 100% будет c Size=0. 
+			// А такие особенности, как с этими service файлами, есть только с ними. Поэтому логично присваивать Size после создания MFT. Все, пора спать.
+
+			return true;
 		}
 
 		private static byte[] GetNewUsersZoneBytes()
@@ -86,7 +92,7 @@ namespace FS_Emulator.FSTools
 			return bytes.ToArray();
 		}
 
-		private static byte[] GetNewMFTZoneBytes(int blockSizeInBytes, int capacityInMegabytes, byte[] serviceZoneBytes, byte[] usersBytes, byte[] list_BlocksBytes)
+		private static void FormatFSFile(string path, int blockSizeInBytes, int capacityInMegabytes, byte[] serviceZoneBytes, byte[] usersBytes, byte[] list_BlocksBytes)
 		{
 			/*Короч, я понял.
 			 Вручную:
@@ -157,39 +163,45 @@ namespace FS_Emulator.FSTools
 			listMFTBytes.AddRange(ServiceRecord.ToBytes());
 			listMFTBytes.AddRange(List_BlocksRecord.ToBytes());
 			listMFTBytes.AddRange(UsersRecord.ToBytes());
-			var MFTBytes = listMFTBytes.ToArray();
+			var MFTRecordsBytes = listMFTBytes.ToArray();
 			#endregion
 
 			// Так, теперь надо записать весь этот кошмар на "диск".
 			// Сначала List_Blocks, потом Users, и наконец MFT. Начальные блоки у меня есть, вперед. 
+			var list_BlocksRecordsBytes = GetNewBlocksFreeOrUsedZoneBytes(capacityInMegabytes, blockSizeInBytes);
 
-			var usersZoneBytes = GetNewUsersZoneBytes();
-			// такое имя из-за того, что раньше в этом методе я уже это имя юзал.
-			var list_BlocksBlocksBytes = GetNewBlocksFreeOrUsedZoneInBytes(capacityInMegabytes, blockSizeInBytes);
+			var usersRecordsBytes = GetNewUsersZoneBytes();
+
 
 
 			// to-do: у меня все номера блоков, куда писать. Теперь мне просто надо записать туда эти данные. Вручную, да
 			// 1) List_Blocks
 			// 2) Users
 			// 3) MFT
-
+			var List_BlocksOffsetInBytes = 0;
+			var UsersOffsetInBytes = blockUsersRecordFrom * blockSizeInBytes;
+			var MFTOffsetInBytes = blockMFTRecordFrom * blockSizeInBytes;
 
 			/*Камон, да я ж делал это уже!!! 
 			 * Просто Position устанавливать, да и все. Всего 3 раза. 3!!!*/
 
 
+			FileStream file;
+			using (file = File.Create(path))
+			{
+				//Записываю файлы, но учитываю смещение.
 
+				file.Position = List_BlocksOffsetInBytes;
 
+				file.Write(list_BlocksRecordsBytes, 0, list_BlocksRecordsBytes.Length);
+				file.Position = UsersOffsetInBytes;
 
+				file.Write(usersRecordsBytes, 0, usersRecordsBytes.Length);
+				file.Position = MFTOffsetInBytes;
 
+				file.Write(MFTRecordsBytes, 0, MFTRecordsBytes.Length);
+			}
 
-
-
-
-			// все, что дальше - Obsolete. Я использую этот метод как CreateNewMFTZone.
-			var listBytes = new List<byte>();
-
-			return listBytes.ToArray();
 		}
 
 		private static int GetBlockCountForBytes(int blockSizeInBytes, int bytesCount)
@@ -209,54 +221,12 @@ namespace FS_Emulator.FSTools
 
 		private static byte[] GetNewServiceZoneInBytes(int blockSizeInBytes)
 		{
-			List<byte> serviceZoneByteList;
-			{
-				var serviceZoneData = new
-				{
-					Size_block = (short)blockSizeInBytes,
-					Block_start_data = (int)0,
-					Number_Of_Blocks = (long)0,
-					Number_Of_Free_Blocks = (long)0,
-					FS_Version = "Simple_NTFS v.1.0",
-					Volume = 'A'
-				};
+			var ServiceRecord = new ServiceRecord((short)blockSizeInBytes, 0);
 
-				// FS_Version_OK_UTF8Array - это 30-bytes FS_Version
-				char[] FS_Version_OK_UTF8Array;
-				{
-					// надо к FS_Version добавить недостающие char
-					var extraChars = new char[FSNameSize - serviceZoneData.FS_Version.Length]; // 30-17 = 13
-
-					var temp = serviceZoneData.FS_Version.ToList();
-					temp.AddRange(extraChars);
-					FS_Version_OK_UTF8Array = temp.ToArray();
-				}
-
-
-				var serviceZone = new
-				{
-					size_block = BitConverter.GetBytes(serviceZoneData.Size_block),
-					block_start_data = BitConverter.GetBytes(serviceZoneData.Block_start_data),
-					number_of_blocks = BitConverter.GetBytes(serviceZoneData.Number_Of_Blocks),
-					number_of_free_blocks = BitConverter.GetBytes(serviceZoneData.Number_Of_Free_Blocks),
-					fs_v_ASCII_Bytes = Encoding.Convert(Encoding.UTF8, Encoding.ASCII, Encoding.UTF8.GetBytes(FS_Version_OK_UTF8Array)),
-					VolumeASCII = BitConverter.GetBytes(serviceZoneData.Volume)
-				};
-
-
-				serviceZoneByteList = new List<byte>();
-				serviceZoneByteList.AddRange(BitConverter.GetBytes(serviceZoneData.Size_block));
-				serviceZoneByteList.AddRange(BitConverter.GetBytes(serviceZoneData.Block_start_data));
-				serviceZoneByteList.AddRange(BitConverter.GetBytes(serviceZoneData.Number_Of_Blocks));
-				serviceZoneByteList.AddRange(BitConverter.GetBytes(serviceZoneData.Number_Of_Free_Blocks));
-				serviceZoneByteList.AddRange(serviceZone.fs_v_ASCII_Bytes);
-				serviceZoneByteList.AddRange(serviceZone.VolumeASCII);
-			}
-
-			return serviceZoneByteList.ToArray();
+			return ServiceRecord.ToBytes();
 		}
 
-		private static byte[] GetNewBlocksFreeOrUsedZoneInBytes(int capacityInMegabytes, int clusterSizeInBytes)
+		private static byte[] GetNewBlocksFreeOrUsedZoneBytes(int capacityInMegabytes, int clusterSizeInBytes)
 		{
 			var numberOfBlocks = Bytes.FromMegabytes(capacityInMegabytes) / clusterSizeInBytes;
 

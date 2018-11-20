@@ -56,7 +56,7 @@ namespace FS_Emulator
 
         private void BtOK_Click(object sender, EventArgs e)
         {
-            FSTools.FS.Create(pathToSave, FSCapacity, 512);
+            FSTools.FS.FormatOrCreate(pathToSave, FSCapacity, 512);
         }
 
         private void PathToSaveTB_TextChanged(object sender, EventArgs e)
