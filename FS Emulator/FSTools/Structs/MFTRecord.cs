@@ -8,9 +8,25 @@ namespace FS_Emulator.FSTools.Structs
 {
 	public partial struct MFTRecord
 	{
-		public const int SpaceForData = 737;
+		public const int SpaceForData = 544;
 		public const int SizeInBytes = 1024;
 
+		public const int OffsetForIndex = 0;
+		public const int OffsetForIsFileExists = 4;
+		public const int OffsetForIsNotInMFT = 5;
+
+		public const int OffsetForFileName = 6;
+		public const int OffsetForPath = 56;
+		public const int OffsetForFileType = 262;
+		public const int OffsetForDataUnitSize = 263;
+		public const int OffsetForTime_Creation = 267;
+		public const int OffsetForTime_Modification = 275;
+		public const int OffsetForFileSize = 283;
+		public const int OffsetForFlags = 287;
+		public const int OffsetForUserRights = 288;
+		public const int OffsetForData = 480;
+
+		#region
 		public int Index;
 		public bool IsFileExists;
 		/// <summary>
@@ -50,7 +66,6 @@ namespace FS_Emulator.FSTools.Structs
 			}
 			else
 			{
-				// to-do: расположить данные на "диске", раз уж них есть Number_FirstBlock.
 
 				Data = new byte[MFTRecord.SpaceForData];
 			}
@@ -103,13 +118,14 @@ namespace FS_Emulator.FSTools.Structs
 				User_Rights = User_Rights.TrimOrExpandTo(64);
 			}
 		}
-
+		#endregion
 		public byte[] ToBytes()
 		{ // сейчас это toBytes без Data. Специально чтоб вычислить размер Data.
 
 			var list = new List<byte>();
 			list.AddRange(BitConverter.GetBytes(Index));
 			list.AddRange(BitConverter.GetBytes(IsFileExists));
+			list.AddRange(BitConverter.GetBytes(IsNotInMFT));
 			list.AddRange(FileName);
 			list.AddRange(Path);
 			list.Add((byte)FileType);
@@ -118,6 +134,14 @@ namespace FS_Emulator.FSTools.Structs
 			list.AddRange(BitConverter.GetBytes(Time_Modification));
 			list.AddRange(BitConverter.GetBytes(FileSize));
 			list.Add(Flags);
+			#region Get Bytes For User Rights
+			var bytesForUserRights = new List<byte>();
+			foreach(var right in User_Rights)
+			{
+				bytesForUserRights.AddRange(right.ToBytes());
+			}
+			#endregion
+			list.AddRange(bytesForUserRights.ToArray());
 			list.AddRange(Data);
 
 
