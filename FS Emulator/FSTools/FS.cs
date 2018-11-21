@@ -13,9 +13,11 @@ namespace FS_Emulator.FSTools
 	public class FS
 	{
 		public static int FSNameSize = 30;
-		public static int MaxNumber_Users = 64;
-		public static int MaxFiles = 0;
-		public static int FilesCount = 0;
+		public static int MaxUsersCount = 64;
+		public static int MaxFilesCount;
+		public static int FilesCount;
+		public static int BlockStartMFT;
+		public static int BlockSizeInBytes;
 		/* макс. кол-во MFT-записей. 
 		 * Вычислить через <spaceForMFTZone> - (<spaceForUsers (всегда одинаковое)> + <spaceForList_Blocks>) 
 		 * => (blocks)spaceForMFT 
@@ -35,9 +37,7 @@ namespace FS_Emulator.FSTools
 
 		public static void FormatOrCreate(string path, int capacityInMegabytes, int blockSizeInBytes)
 		{
-			// создать Service
-			// to-do: создать структуру.
-			var serviceZoneBytes = GetNewServiceZoneInBytes(blockSizeInBytes);
+			BlockSizeInBytes = blockSizeInBytes;
 
 			// создать BlocksFreeOrBusy
 			var list_BlocksBytes = GetNewBlocksFreeOrUsedZoneBytes(capacityInMegabytes, blockSizeInBytes);
@@ -50,10 +50,10 @@ namespace FS_Emulator.FSTools
 
 			try
 			{
-				FormatFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes);
+				FormatFSFile(path, blockSizeInBytes, capacityInMegabytes, usersZoneBytes, list_BlocksBytes);
 
 
-				if (!TestFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes)) System.Windows.Forms.MessageBox.Show("Кошмааар!!!");;
+				//if (!TestFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes)) System.Windows.Forms.MessageBox.Show("Кошмааар!!!");;
 
 			}
 			catch (IOException)
@@ -92,7 +92,7 @@ namespace FS_Emulator.FSTools
 			return bytes.ToArray();
 		}
 
-		private static void FormatFSFile(string path, int blockSizeInBytes, int capacityInMegabytes, byte[] serviceZoneBytes, byte[] usersBytes, byte[] list_BlocksBytes)
+		private static void FormatFSFile(string path, int blockSizeInBytes, int capacityInMegabytes, byte[] usersBytes, byte[] list_BlocksBytes)
 		{
 			/*Короч, я понял.
 			 Вручную:
@@ -114,9 +114,7 @@ namespace FS_Emulator.FSTools
 			#endregion
 
 			#region Создание записей MFT
-			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new[] { new UserRight(0, Right.RW) }, listHeadersBytes.ToArray());
-			var ServiceRecord = new MFTRecord(2, "$Service", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new[] { new UserRight(0, Right.RW) }, serviceZoneBytes);
-
+			
 			#region List_blocks
 			var blocksCountForZoneOfList_Blocks = GetBlockCountForBytes(blockSizeInBytes, list_BlocksBytes.Length);
 
@@ -130,7 +128,7 @@ namespace FS_Emulator.FSTools
 			#region Users
 
 			var blockUsersRecordFrom = blocksCountForZoneOfList_Blocks;
-			int blocksCountForUsersZone = GetBlockCountForBytes(blockSizeInBytes, UserRecord.SizeInBytes*MaxNumber_Users);
+			int blocksCountForUsersZone = GetBlockCountForBytes(blockSizeInBytes, UserRecord.SizeInBytes*MaxUsersCount);
 			var blockUsersRecordTo = blockUsersRecordFrom + blocksCountForUsersZone;
 
 			var dataForUsersRecordBytes = new List<byte>();
@@ -138,14 +136,22 @@ namespace FS_Emulator.FSTools
 			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersRecordTo));
 
 			var UsersRecord = new MFTRecord(4, "$List_Blocks", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForUsersRecordBytes.ToArray(), isNotInMFT: true);
+			
 			#endregion
 
 			#region MFT
+
+
+			var blockCountForFullMFTZone = list_BlocksBytes.Length / 100 * 12; //12% всех блоков - на MFT зону.
+			var blockDataFrom = blockCountForFullMFTZone;
+			var blocksForMFT = blockCountForFullMFTZone - (blocksCountForUsersZone + blocksCountForZoneOfList_Blocks);
+			var bytesForMFT = blocksForMFT * blockSizeInBytes;
+			var maxFiles = bytesForMFT / MFTRecord.SizeInBytes;
+			MaxFilesCount = maxFiles;
+
 			var blockMFTRecordFrom = blockUsersRecordTo;
-			var bytesForMFTRecords = Bytes.FromKilobytes(5);
-			var blockMFTRecordTo = bytesForMFTRecords / blockSizeInBytes;
-			if (bytesForMFTRecords % blockSizeInBytes != 0)
-				blockMFTRecordTo += 1;
+			BlockStartMFT = blockMFTRecordFrom;
+			var blockMFTRecordTo = blockDataFrom;
 
 			var dataForMFTRecordBytes = new List<byte>();
 			dataForMFTRecordBytes.AddRange(BitConverter.GetBytes(blockMFTRecordFrom));
@@ -154,9 +160,15 @@ namespace FS_Emulator.FSTools
 			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForMFTRecordBytes.ToArray(), isNotInMFT: true);
 			#endregion
 
+			var serviceZoneBytes = new ServiceRecord(blockSizeInBytes, blockMFTRecordFrom, blockDataFrom).ToBytes();
+			var ServiceRecord = new MFTRecord(2, "$Service", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new[] { new UserRight(0, Right.RW) }, serviceZoneBytes);
+
+			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new[] { new UserRight(0, Right.RW) }, listHeadersBytes.ToArray());
+
+
 			#endregion
 
-			#region Создание исходных данных в MFT
+			#region Создание исходных данных для MFT
 			var listMFTBytes = new List<byte>();
 			listMFTBytes.AddRange(RootDirRecord.ToBytes());
 			listMFTBytes.AddRange(MftRecord.ToBytes());
@@ -166,31 +178,26 @@ namespace FS_Emulator.FSTools
 			var MFTRecordsBytes = listMFTBytes.ToArray();
 			#endregion
 
-			// Так, теперь надо записать весь этот кошмар на "диск".
-			// Сначала List_Blocks, потом Users, и наконец MFT. Начальные блоки у меня есть, вперед. 
+
 			var list_BlocksRecordsBytes = GetNewBlocksFreeOrUsedZoneBytes(capacityInMegabytes, blockSizeInBytes);
 
 			var usersRecordsBytes = GetNewUsersZoneBytes();
 
+			#region Заполнение size в записях MFT
+			RootDirRecord.FileSize = listHeadersBytes.Count;
+			ServiceRecord.FileSize = FSTools.ServiceRecord.SizeInBytes;
+			List_BlocksRecord.FileSize = list_BlocksRecordsBytes.Length;
+			UsersRecord.FileSize = usersRecordsBytes.Length;
+			MftRecord.FileSize = MFTRecordsBytes.Length;
+			#endregion
 
-
-			// to-do: у меня все номера блоков, куда писать. Теперь мне просто надо записать туда эти данные. Вручную, да
-			// 1) List_Blocks
-			// 2) Users
-			// 3) MFT
+			#region Запись на "диск"
 			var List_BlocksOffsetInBytes = 0;
 			var UsersOffsetInBytes = blockUsersRecordFrom * blockSizeInBytes;
 			var MFTOffsetInBytes = blockMFTRecordFrom * blockSizeInBytes;
 
-			/*Камон, да я ж делал это уже!!! 
-			 * Просто Position устанавливать, да и все. Всего 3 раза. 3!!!*/
-
-
-			FileStream file;
-			using (file = File.Create(path))
+			using (var file = File.Create(path))
 			{
-				//Записываю файлы, но учитываю смещение.
-
 				file.Position = List_BlocksOffsetInBytes;
 
 				file.Write(list_BlocksRecordsBytes, 0, list_BlocksRecordsBytes.Length);
@@ -201,6 +208,9 @@ namespace FS_Emulator.FSTools
 
 				file.Write(MFTRecordsBytes, 0, MFTRecordsBytes.Length);
 			}
+
+			#endregion
+			FilesCount = 5;
 
 		}
 
@@ -219,12 +229,11 @@ namespace FS_Emulator.FSTools
 			}
 		}
 
-		private static byte[] GetNewServiceZoneInBytes(int blockSizeInBytes)
+		/*private static byte[] GetNewServiceZoneInBytes(int blockSizeInBytes)
 		{
-			var ServiceRecord = new ServiceRecord((short)blockSizeInBytes, 0);
-
+			// Можно и так, но тогда придется отдельно устанавливать некоторые поля, типа BlockCount (опа, забыл )
 			return ServiceRecord.ToBytes();
-		}
+		}*/
 
 		private static byte[] GetNewBlocksFreeOrUsedZoneBytes(int capacityInMegabytes, int clusterSizeInBytes)
 		{
@@ -247,6 +256,33 @@ namespace FS_Emulator.FSTools
 		}
 
 
+
+		public static bool IsFileExists(byte[] path, byte[] fileName)
+		{
+			
+
+
+			return false;
+		}
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="path">путь к файлу</param>
+		/// <param name="fileName">имя файла</param>
+		/// <returns>MFTRecord</returns>
+		public static byte[] FindMFTRecord(byte[] path, byte[] fileName)
+		{
+			var byteStartMFT = BlockStartMFT * BlockSizeInBytes;
+
+
+
+			return null; // такой не найден
+		}
+
+		public static byte[] FindFile(int mftIndex)
+		{
+			throw new NotImplementedException();
+		}
 
 		public static void CreateFile(long blockStart, long size/*in bytes*/, string name, string path, FileType fileType, int size_Unit = 1, byte[] data = null)
 		{

@@ -23,7 +23,7 @@ namespace FS_Emulator.FSTools.Structs
 		public int DataUnitSize; /*Для текста - 1B, для MFT, например, 1024B*/
 		public long Time_Creation;
 		public long Time_Modification;
-		public int Size;
+		public int FileSize;
 
 		#region flags
 		public byte Flags; // [0] - IsUnfragmented, [3] - IsSystem, [4] - IsHidden		
@@ -37,7 +37,7 @@ namespace FS_Emulator.FSTools.Structs
 			Index = index;
 
 			IsFileExists = true;
-			Size = 0;
+			FileSize = 0;
 			IsNotInMFT = isNotInMFT;
 			Flags = flags;
 
@@ -116,7 +116,7 @@ namespace FS_Emulator.FSTools.Structs
 			list.AddRange(BitConverter.GetBytes(DataUnitSize));
 			list.AddRange(BitConverter.GetBytes(Time_Creation));
 			list.AddRange(BitConverter.GetBytes(Time_Modification));
-			list.AddRange(BitConverter.GetBytes(Size));
+			list.AddRange(BitConverter.GetBytes(FileSize));
 			list.Add(Flags);
 			list.AddRange(Data);
 
