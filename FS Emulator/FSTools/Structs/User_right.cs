@@ -19,7 +19,11 @@ namespace FS_Emulator.FSTools.Structs
     {
 		public const int SizeInBytes = 3;
 
-        public short UserId;
+		public const int OffsetForUserId = 0;
+		public const int OffsetForRight = 2;
+
+
+		public short UserId;
         public Right Right;
 
         public UserRight( short userId, Right right)

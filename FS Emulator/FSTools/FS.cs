@@ -52,7 +52,6 @@ namespace FS_Emulator.FSTools
 			try
 			{
 				FormatFSFile(path, blockSizeInBytes, capacityInMegabytes);
-				var _ = FindMFTRecord("$.".ToBytes(), "$Users".ToBytes());
 
 				//if (!TestFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes)) System.Windows.Forms.MessageBox.Show("Кошмааар!!!");;
 
@@ -150,7 +149,7 @@ namespace FS_Emulator.FSTools
 			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersZoneFrom));
 			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersZoneTo));
 
-			var UsersRecord = new MFTRecord(4, "$List_Blocks", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForUsersRecordBytes.ToArray(), isNotInMFT: true);
+			var UsersRecord = new MFTRecord(4, "$Users", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new[] { new UserRight(0, Right.RW) }, dataForUsersRecordBytes.ToArray(), isNotInMFT: true);
 
 			#endregion
 
@@ -180,7 +179,7 @@ namespace FS_Emulator.FSTools
 
 			#endregion
 
-			
+
 
 
 			var list_BlocksRecordsBytes = GetNewBlocksFreeOrUsedZoneBytes(capacityInMegabytes, blockSizeInBytes);
@@ -327,8 +326,9 @@ namespace FS_Emulator.FSTools
 						ms.Read(fpath, 0, fname.Length);
 					}
 
-					if (fname.SequenceEqual(fileName) && fpath.SequenceEqual(path))
-						return recBytes; // нашли файл
+					if (fname.SequenceEqual(fileName))
+						if (fpath.SequenceEqual(path))
+							return recBytes; // нашли файл
 				} while (stream.Position - byteStartMFT < MFTSize);
 			}
 
@@ -354,6 +354,8 @@ namespace FS_Emulator.FSTools
 
 			return recBuf;
 		}
+
+		public 
 
 		public int GetMaxFilesCount()
 		{

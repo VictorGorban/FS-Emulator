@@ -13,6 +13,10 @@ namespace FS_Emulator.FSTools.Structs
 	{
 		public const int SizeInBytes = 126;
 
+		public const int OffsetForUser_id = 0;
+		public const int OffsetForName = 2;
+		public const int OffsetForLogin = 32;
+		public const int OffsetForPasswordHash = 62;
 
 		public short User_id;
 		public byte[] Name; // 30

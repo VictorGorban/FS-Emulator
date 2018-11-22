@@ -11,9 +11,6 @@ namespace FS_Emulator.FSTools
 	{
 		public static int SizeInBytes = 75;
 
-
-
-
 		public const int OffsetForBlockSizeInBytes =0;
 		public const int OffsetForBlock_start_MFT =4;
 		public const int OffsetForBlock_start_Data =8;

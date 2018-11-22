@@ -11,6 +11,10 @@ namespace FS_Emulator.FSTools.Structs
 	{
 		public const int SizeInBytes = 54;
 
+		public const int OffsetForNumberInMFT = 0;
+		public const int OffsetForFileName = 4;
+
+
 		public int NumberInMFT;
 		public byte[] FileName;
 

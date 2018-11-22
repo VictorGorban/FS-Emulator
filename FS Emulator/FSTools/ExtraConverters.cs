@@ -78,7 +78,7 @@ namespace FS_Emulator.FSTools
 			{
 				var list = path.ToList();
 				list.Add((byte)'/');
-				return path.ToArray();
+				return list.ToArray();
 			}//else
 
 			return path;
