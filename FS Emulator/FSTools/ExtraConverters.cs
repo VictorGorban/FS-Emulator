@@ -44,7 +44,7 @@ namespace FS_Emulator.FSTools
 			return Encoding.ASCII.GetBytes(str).TrimOrExpandTo(requiredCountOfBytes);
 		}
 
-		public static string ToNormalizedPath(string path)
+		public static string ToNormalizedPath(this string path)
 		{
 			if (path == null)
 			{
@@ -93,5 +93,7 @@ namespace FS_Emulator.FSTools
 		{
 			return Encoding.ASCII.GetString(bytes);
 		}
+
+		
 	}
 }

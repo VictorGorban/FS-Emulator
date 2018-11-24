@@ -7,36 +7,29 @@ using System.Threading.Tasks;
 
 namespace FS_Emulator.FSTools.Structs
 {
-    public enum Right: byte
+    public struct UserRights
     {
-        None,
-        R,
-        W,
-        RW,
-    }
-
-    public struct UserRight
-    {
-		public const int SizeInBytes = 3;
+		public const int SizeInBytes = 4;
 
 		public const int OffsetForUserId = 0;
-		public const int OffsetForRight = 2;
+		public const int OffsetForRights = 2;
 
 
 		public short UserId;
-        public Right Right;
+        public short Rights;
 
-        public UserRight( short userId, Right right)
+        public UserRights( short userId, short rights)
         {
             UserId = userId;
-            Right = right;
+            Rights = rights;
         }
+
 
 		public byte[] ToBytes()
 		{
 			var list = new List<byte>();
 			list.AddRange(BitConverter.GetBytes(UserId));
-			list.Add((byte)Right);
+			list.AddRange(BitConverter.GetBytes(Rights));
 
 			return list.ToArray();
 		}

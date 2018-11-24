@@ -69,13 +69,17 @@
     <Compile Include="FSTools\MeasureConverters\Gigabytes.cs" />
     <Compile Include="FSTools\MeasureConverters\Kilobytes.cs" />
     <Compile Include="FSTools\MeasureConverters\Megabytes.cs" />
+    <Compile Include="FSTools\Structs\CreateFileResult.cs" />
+    <Compile Include="FSTools\Structs\ModifyFileResult.cs" />
+    <Compile Include="FSTools\Structs\ReadFileResult.cs" />
+    <Compile Include="FSTools\Structs\RemoveFileResult.cs" />
     <Compile Include="FSTools\Structs\ServiceRecord.cs" />
     <Compile Include="FSTools\Structs\FileHeader.cs" />
     <Compile Include="FSTools\Structs\FileType.cs" />
     <Compile Include="FSTools\Structs\MFTRecord.cs" />
     <Compile Include="FSTools\Structs\MFTRecord.FileFlags.cs" />
     <Compile Include="FSTools\Structs\UserRecord.cs" />
-    <Compile Include="FSTools\Structs\User_right.cs" />
+    <Compile Include="FSTools\Structs\UserRights.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
@@ -106,6 +110,8 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="FSTools\Structs\Results\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
