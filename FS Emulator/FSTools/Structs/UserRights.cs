@@ -34,11 +34,11 @@ namespace FS_Emulator.FSTools.Structs
 			return list.ToArray();
 		}
 
-		/*public static UserRight FromBytes(byte[] bytes)
+		public static UserRights FromBytes(byte[] bytes)
 		{
 			if (bytes.Length != SizeInBytes)
 				throw new ArgumentException("Число байт не верно.", nameof(bytes));
-			var res = new UserRight();
+			var res = new UserRights();
 			using (var ms = new MemoryStream(bytes))
 			{
 				// скобочки - для разграничения области видимости. Потому что мне каждый раз нужен новый буфер.
@@ -49,13 +49,13 @@ namespace FS_Emulator.FSTools.Structs
 				}
 
 				{
-					byte[] buffer = new byte[1];
+					byte[] buffer = new byte[2];
 					ms.Read(buffer, 0, buffer.Length);
-					res.Right = (Right)buffer[0];
+					res.Rights = BitConverter.ToInt16(buffer, 0);
 				}
 			}
 
 			return res;
-		}*/
+		}
     }
 }

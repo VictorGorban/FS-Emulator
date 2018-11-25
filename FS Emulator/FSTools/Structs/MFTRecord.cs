@@ -22,7 +22,7 @@ namespace FS_Emulator.FSTools.Structs
 		public const int OffsetForTime_Modification = 275;
 		public const int OffsetForFileSize = 283;
 		public const int OffsetForFlags = 287;
-		public const int OffsetForUserRights = 288;
+		public const int OffsetForOwnerRights = 288;
 		public const int OffsetForData = 292;
 
 		#region
@@ -48,6 +48,7 @@ namespace FS_Emulator.FSTools.Structs
 		#region flags
 		public byte Flags; // [0] - IsUnfragmented, [3] - IsSystem, [4] - IsHidden		
 		#endregion
+		public int OwnerId;
 		public UserRights OwnerRights; // short (7_7). Me and others
 		public byte[] Data; // все, что останется от 1 КБ. 1024-237 = MFTRecord.SpaceForData
 
@@ -55,6 +56,7 @@ namespace FS_Emulator.FSTools.Structs
 		// без / и           с / в конце. Если нет - добавлю.
 		{
 			Index = index;
+			OwnerId = FS.RootId;
 
 			IsFileExists = true;
 			FileSize = 0;

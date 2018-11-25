@@ -9,25 +9,27 @@ namespace FS_Emulator.FSTools
 {
 	public struct ServiceRecord
 	{
-		public static int SizeInBytes = 75;
+		public static int SizeInBytes = 79;
 
 		public const int OffsetForBlockSizeInBytes =0;
 		public const int OffsetForBlock_start_MFT =4;
 		public const int OffsetForBlock_start_Data =8;
 		public const int OffsetForMax_files_count =12;
-		public const int OffsetForMax_users_count =16;
-		public const int OffsetForFiles_count =20;
-		public const int OffsetForUsers_count =24;
-		public const int OffsetForNumber_Of_Blocks =28;
-		public const int OffsetForNumber_Of_Free_Blocks =36;
-		public const int OffsetForFS_Version =44;
-		public const int OffsetForVolume = 74;
+		public const int OffsetForMax_files_count_InsideDir = 16;
+		public const int OffsetForMax_users_count =20;
+		public const int OffsetForFiles_count =24;
+		public const int OffsetForUsers_count =28;
+		public const int OffsetForNumber_Of_Blocks =32;
+		public const int OffsetForNumber_Of_Free_Blocks =40;
+		public const int OffsetForFS_Version =48;
+		public const int OffsetForVolume = 78;
 		
 
 		public int BlockSizeInBytes;
 		public int Block_start_MFT;
 		public int Block_start_Data;
 		public int Max_files_count;
+		public int Max_files_count_InsideDir;
 		public int Max_users_count;
 		public int Files_count;
 		public int Users_count;
@@ -39,9 +41,11 @@ namespace FS_Emulator.FSTools
 		public ServiceRecord(int size_block, int block_start_MFT, int block_start_data, long number_Of_Blocks =0, long number_Of_Free_Blocks =0, string fS_Version = "Simple_NTFS v.1.0", char volume = 'A')
 		{
 			Max_files_count = 0;
+			Max_files_count_InsideDir = 0;
 			Max_users_count = 0;
 			Files_count = 0;
 			Users_count = 0;
+
 
 			BlockSizeInBytes = size_block;
 			Block_start_MFT = block_start_MFT;

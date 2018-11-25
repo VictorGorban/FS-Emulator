@@ -13,9 +13,18 @@ namespace FS_Emulator.FSTools.Structs
 	{
 		OK,
 		DirNotExists,
+		/// <summary>
+		/// Файл с таким именем уже существует в этой директории
+		/// </summary>
 		FileAlreadyExists,
 		NotEnoughRights,
+		/// <summary>
+		/// Недостаточно прав для редактирования директории, которой файл создается
+		/// </summary>
 		NotEnoughSpace,
+		/// <summary>
+		/// Уже достигнуто макс. кол-во файлов (макс. кол-во записей в MFT)
+		/// </summary>
 		MaxFilesNumberReached
 	}
 }

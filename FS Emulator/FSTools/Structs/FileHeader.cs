@@ -13,7 +13,6 @@ namespace FS_Emulator.FSTools.Structs
 
 		public const int OffsetForIndexInMFT = 0;
 		public const int OffsetForParentDirindexInMFT = 4;
-		public const int OffsetForFileName = 4;
 
 
 		public int IndexInMFT;
@@ -34,7 +33,7 @@ namespace FS_Emulator.FSTools.Structs
 			return list.ToArray();
 		}
 
-		/*public static FileHeader FromBytes(byte[] bytes)
+		public static FileHeader FromBytes(byte[] bytes)
 		{
 			if (bytes.Length != SizeInBytes)
 				throw new ArgumentException("Число байт не верно.", nameof(bytes));
@@ -45,17 +44,17 @@ namespace FS_Emulator.FSTools.Structs
 				{
 					byte[] buffer = new byte[4];
 					ms.Read(buffer, 0, buffer.Length);
-					res.NumberInMFT = BitConverter.ToInt32(buffer, 0);
+					res.IndexInMFT = BitConverter.ToInt32(buffer, 0);
 				}
 
 				{
-					byte[] buffer = new byte[30];
+					byte[] buffer = new byte[4];
 					ms.Read(buffer, 0, buffer.Length);
-					res.FileName = buffer;
+					res.IndexInMFT = BitConverter.ToInt32(buffer, 0);
 				}
 			}
 
 			return res;
-		}*/
+		}
 	}
 }
