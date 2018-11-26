@@ -2,7 +2,8 @@
 {
 		public static class FileFlags
 		{
-			public static byte 
+			public const byte 
+				None = 0,
 				Unfragmented =				0b_10000000,
 				System =					0b_00010000,
 				Hidden =					0b_00001000,

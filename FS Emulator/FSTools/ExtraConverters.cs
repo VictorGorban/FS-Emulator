@@ -91,7 +91,9 @@ namespace FS_Emulator.FSTools
 
 		public static string ToASCIIString(this byte[] bytes)
 		{
-			return Encoding.ASCII.GetString(bytes);
+			var str = Encoding.ASCII.GetString(bytes).Replace("\0","");
+
+			return str;
 		}
 
 		

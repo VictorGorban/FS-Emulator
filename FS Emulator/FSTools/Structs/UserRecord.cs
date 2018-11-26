@@ -19,6 +19,7 @@ namespace FS_Emulator.FSTools.Structs
 		public const int OffsetForPasswordHash = 62;
 
 		public short User_id;
+		// При удалении, буду ставить это поле в 0. Потому что имя пустым не бывает.
 		public byte[] Name; // 30
 		public byte[] Login; // 30
 		public byte[] PasswordHash; // 64
@@ -55,7 +56,7 @@ namespace FS_Emulator.FSTools.Structs
 			return bytes.ToArray();
 		}
 
-		/*public static UserRecord FromBytes(byte[] bytes)
+		public static UserRecord FromBytes(byte[] bytes)
 		{
 			if (bytes.Length != SizeInBytes)
 				throw new ArgumentException("Число байт не верно.", nameof(bytes));
@@ -87,22 +88,6 @@ namespace FS_Emulator.FSTools.Structs
 			}
 
 			return res;
-		}*/
-
-		/*
-				public static UserRecord FromBytes(byte[] bytes)
-				{
-					if (bytes.Length != SizeInBytes)
-						throw new ArgumentException("Число байт не верно.", nameof(bytes));
-					var res = new UserRecord();
-					using (var ms = new MemoryStream(bytes))
-					{
-						// скобочки - для разграничения области видимости. Потому что мне каждый раз нужен новый буфер.
-					}
-
-					return res;
-				}
-				*/
-
+		}
 	}
 }

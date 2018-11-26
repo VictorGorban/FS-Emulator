@@ -14,6 +14,7 @@ namespace FS_Emulator.FSTools.Structs
 		public const int OffsetForUserId = 0;
 		public const int OffsetForRights = 2;
 
+		public const short StandardRights = 77;
 
 		public short UserId;
         public short Rights;

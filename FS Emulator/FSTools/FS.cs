@@ -20,16 +20,8 @@ namespace FS_Emulator.FSTools
 		public Stream stream;
 		public int CurrentUserId;
 		public const int RootId = 0;
-
-
-
-		/* макс. кол-во MFT-записей. 
-		 * Вычислить через <spaceForMFTZone> - (<spaceForUsers (всегда одинаковое)> + <spaceForList_Blocks>) 
-		 * => (blocks)spaceForMFT 
-		 * => / (bytes)size_Block 
-		 * => (bytes) spaceForMFT / 1024 
-		 * => maxFiles */
-
+		public const int UsersFileIndex = 4;
+		public const int offsetForServiceZone = 0;
 
 
 
@@ -228,7 +220,7 @@ namespace FS_Emulator.FSTools
 				Files_count = 4,
 				Max_users_count = 64
 			};
-			serviceRecord.Files_count = 2; // system and admin
+			serviceRecord.Users_count = 2; // root and admin
 
 			var serviceBytes = serviceRecord.ToBytes();
 
@@ -290,11 +282,11 @@ namespace FS_Emulator.FSTools
 
 
 		/// <summary>
-		/// 
+		/// Находит MFTRecord с заданным path и fileName.
 		/// </summary>
 		/// <param name="path">путь к файлу</param>
 		/// <param name="fileName">имя файла</param>
-		/// <returns>MFTRecord</returns>
+		/// <returns>MFTRecord. null, если не найдено.</returns>
 		public byte[] FindMFTRecord(byte[] path, byte[] fileName)
 		{
 			path = path.ToNormalizedPath().TrimOrExpandTo(206);
@@ -590,28 +582,142 @@ namespace FS_Emulator.FSTools
 				return CreateFileResult.FileAlreadyExists;
 			}
 
-			if(! UserCanWriteFile(parentDirRecord,userId))
+			if (!UserCanWriteFile(parentDirRecord, userId))
 			{
 				return CreateFileResult.NotEnoughRights;
 			}
 
-			if (! (GetFilesCount() < GetMaxFilesCount())) // уже создано файлов >= макс. кол-ва
+			if (!(GetFilesCount() < GetMaxFilesCount())) // уже создано файлов >= макс. кол-ва
 			{
 				return CreateFileResult.MaxFilesNumberReached;
 			}
 
-			var addToDirResult = AddRecordToDir(parentDirIndex, fileName, userId);
-			if (addToDirResult == ModifyFileResult.NotEnoughSpace/*public ModifyFileResult AddFileToDir(int indexOfDir, string fileName);*//*Пытаемся добавить файл в директорию, а она возвращает "мало места"*/)
+			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, userId, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, 77));
+
+			// индекс в MFT получили, теперь добавить его в директорию
+			var addToDirResult = AddRecordToDir(parentDirIndex, indexOfNewFile);
+			if (addToDirResult == ModifyFileResult.NotEnoughSpace)
 			{
 				return CreateFileResult.NotEnoughSpace;
 			}
-			
+
 			// Все, добавили запись в директорию
 			// добавляем запись в MFT
 
 
-			throw new NotImplementedException();
 			return CreateFileResult.OK;
+		}
+
+		/// <summary>
+		/// Создает запись MFT и возвращает ее индекс. Нет проверок на "можно ли добавить запись"
+		/// </summary>
+		/// <param name="fileName"></param>
+
+		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
+		{
+			
+			path = path.ToNormalizedPath();
+
+			
+			int mftStart = GetByteStartMFT();
+			int startPosition = mftStart;
+			stream.Position = startPosition;
+			byte[] checkedRecord = new byte[MFTRecord.SizeInBytes];
+			do
+			{
+				stream.Read(checkedRecord, 0, checkedRecord.Length);
+			} while (GetIsFileExists(checkedRecord));
+			//нашел место. Теперь записать сюда данные. Индекс, бла-бла-бла. Индекс в любом случае можно взять из Position.
+
+			stream.Position -= MFTRecord.SizeInBytes;
+			#region Создание записи
+			int recIndex = ((int)stream.Position - startPosition) / MFTRecord.SizeInBytes;
+			byte[] newRecord = new MFTRecord(recIndex, fileName, path, fileType, unitSize, timeCreation, timeModification, flags, userRights).ToBytes();
+			#endregion
+			stream.Write(newRecord, 0, newRecord.Length);
+
+			// И не забыть еще увеличить FileCount в Service.
+			return IncreaseFileCount();
+		}
+		/// <summary>
+		/// Увеличивает значение кол-ва файлов в системе на указанное кол-во.
+		/// </summary>
+		/// <param name="count">Число, на которое нужно увеличить</param>
+		/// <returns>Новое кол-во файлов</returns>
+		private int IncreaseFileCount(int count = 1)
+		{
+			int startPosition = offsetForServiceZone + ServiceRecord.OffsetForFiles_count;
+			
+			// считывание FilesCount
+			stream.Position = startPosition;
+			var buf = new byte[4];
+			stream.Read(buf, 0, buf.Length);
+			int oldfCount = BitConverter.ToInt32(buf,0);
+
+			var newfCount = oldfCount + 1;
+			byte[] newfCountBytes = BitConverter.GetBytes(newfCount);
+			
+			// Запись нового FilesCount
+			stream.Position = startPosition;
+			stream.Write(newfCountBytes,0,newfCountBytes.Length);
+
+			return newfCount;
+		}
+
+		/// <summary>
+		/// Уменьшает значение кол-ва файлов в системе на указанное кол-во.
+		/// </summary>
+		/// <param name="count">Число, на которое нужно уменьшить</param>
+		/// <returns>Новое кол-во файлов</returns>
+		private int DecreaseFileCount(int count = 1)
+		{
+			int startPosition = offsetForServiceZone + ServiceRecord.OffsetForFiles_count;
+
+			// считывание FilesCount
+			stream.Position = startPosition;
+			var buf = new byte[4];
+			stream.Read(buf, 0, buf.Length);
+			int oldfCount = BitConverter.ToInt32(buf, 0);
+
+			var newfCount = oldfCount - 1;
+			byte[] newfCountBytes = BitConverter.GetBytes(newfCount);
+
+			// Запись нового FilesCount
+			stream.Position = startPosition;
+			stream.Write(newfCountBytes, 0, newfCountBytes.Length);
+
+			return newfCount;
+		}
+
+		private string GetFullFilePathByMFTRecord(byte[] record)
+		{
+			using (var ms = new MemoryStream(record))
+			{
+				ms.Position = MFTRecord.OffsetForPath;
+				var bufPath = new byte[MFTRecord.LengthOfPath];
+				ms.Read(bufPath, 0, bufPath.Length);
+				var shortPath = bufPath.ToASCIIString();
+
+				ms.Position = MFTRecord.OffsetForFileName;
+				var bufFName = new byte[MFTRecord.LengthOfFileName];
+				ms.Read(bufFName, 0, bufFName.Length);
+				var shortFName = bufFName.ToASCIIString();
+
+				return shortPath.ToNormalizedPath() + shortFName;
+			}
+		}
+
+		private int GetByteStartUsers()
+		{
+			byte[] data = GetFileDataByMFTIndex(UsersFileIndex);
+			using (var ms = new MemoryStream(data))
+			{
+				var buf = new byte[4];
+				ms.Read(buf, 0, buf.Length);
+				int blockNumber = BitConverter.ToInt32(buf, 0); // первый блок, начало
+				int byteNumber = blockNumber * GetBlockSizeInBytes();
+				return byteNumber;
+			}
 		}
 
 		/// <summary>
@@ -621,7 +727,7 @@ namespace FS_Emulator.FSTools
 		/// <param name="fileName">Имя создаваемого файла</param>
 		/// <param name="userId">Индекс пользователя, от имени которого происходит добавление</param>
 		/// <returns>Результат, удалось ли добавить запись.</returns>
-		public ModifyFileResult AddRecordToDir(int mftIndex, string fileName, int userId)
+		public ModifyFileResult AddRecordToDir(int mftIndex, int userId)
 		{
 			// Идем по Data. Если находим запись с Index==0, то заменяем ее, возвращаем OK.
 			// Что ж, мы дошли до конца данных (fileSize). Если (MFTRecord.SpaceForData - fileSize) < FileHeader.SizeInBytes, то return NotEnoughSpace. Иначе без проблем записываем в конец.
@@ -631,7 +737,7 @@ namespace FS_Emulator.FSTools
 				return ModifyFileResult.NotEnoughSpace;
 
 			stream.Position = GetByteStartMFT() + mftIndex * MFTRecord.SizeInBytes;
-			var startPosition = stream.Position+ MFTRecord.OffsetForData;
+			var startPosition = stream.Position + MFTRecord.OffsetForData;
 			var endPosition = startPosition + dirSize;
 
 			#region Собственно процесс поиска и добавления
@@ -639,7 +745,14 @@ namespace FS_Emulator.FSTools
 
 			while (stream.Position < endPosition)
 			{
-
+				var buf = new byte[FileHeader.SizeInBytes];
+				stream.Read(buf, 0, buf.Length);
+				var fheader = FileHeader.FromBytes(buf);
+				if (fheader.IndexInMFT == 0) // Такого не может быть, т.к. 0 - это rootDir.
+				{
+					stream.Position -= FileHeader.SizeInBytes;
+					,b
+				}
 
 			}
 			// Ok, adding to end of the dir
@@ -651,7 +764,7 @@ namespace FS_Emulator.FSTools
 		public int GetFileSize(int mftIndex)
 		{
 			var record = GetMFTRecordByIndex(mftIndex);
-			if (!IsFileExists(record))
+			if (!GetIsFileExists(record))
 				throw new Exception("Файл удален");
 
 			using (var ms = new MemoryStream(record))
@@ -663,7 +776,7 @@ namespace FS_Emulator.FSTools
 			}
 		}
 
-		public bool IsFileExists(byte[] mftRecord)
+		public bool GetIsFileExists(byte[] mftRecord)
 		{
 			if (mftRecord.Length < MFTRecord.SizeInBytes)
 				throw new ArgumentException("Кол-во байт не соответствует норме", nameof(mftRecord));
