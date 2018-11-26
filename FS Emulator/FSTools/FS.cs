@@ -16,7 +16,6 @@ namespace FS_Emulator.FSTools
 		public int FSNameSize = 30;
 		public int MaxUsersCount = 64;
 		public int MaxFilesCount;
-		public int FilesCount;
 		public Stream stream;
 		public int CurrentUserId;
 		public const int RootId = 0;
@@ -147,15 +146,8 @@ namespace FS_Emulator.FSTools
 
 			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, UserRights.OnlyMeRights), dataForMFTRecordBytes.ToArray(), isNotInMFT: true);
 			#endregion
-
-
 			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new UserRights(0, UserRights.OnlyMeRights), listHeadersBytes.ToArray());
-
-
 			#endregion
-
-
-
 
 			var list_BlocksRecordsBytes = GetNewBlocksFreeOrUsedZoneBytes(capacityInMegabytes, blockSizeInBytes);
 
@@ -221,8 +213,108 @@ namespace FS_Emulator.FSTools
 			}
 
 			#endregion
-			FilesCount = 4;
+			
+			// создаю файлы пользователей в корне. Пока что тут только Admin
+			CreateDir(0, "Users", 0); // от имени root.
+			ChangeFileRights(2, UserRights.AllRights);
 
+		}
+		
+		/// <summary>
+		/// Меняет владельца файла на нового. Подразумевается, что операция делается из-под Root.
+		/// </summary>
+		/// <param name="mftIndex">Индекс файла в MFT, владельца которого надо поменять</param>
+		/// <param name="newUserId">UserId нового пользователя.</param>
+		private void ChangeFileOwner(int mftIndex, short newUserId)
+		{
+			int recOffset = GetMFTRecordOffsetById(mftIndex);
+
+			stream.Position = recOffset;
+			stream.Position += MFTRecord.OffsetForOwnerRights;
+			stream.Position += UserRights.OffsetForUserId;
+
+			// нужно 2 байта. Поэтому обязательно short.
+			var bytes = BitConverter.GetBytes(newUserId); 
+			stream.Write(bytes, 0, bytes.Length);
+		}
+
+		/// <summary>
+		/// Меняет права владельца файла. Без проверок.
+		/// </summary>
+		/// <param name="mftIndex">Индекс файла в MFT</param>
+		/// <param name="newRights">Новые права.</param>
+		private void ChangeFileRights(int mftIndex, short newRights)
+		{
+			int recOffset = GetMFTRecordOffsetById(mftIndex);
+
+			stream.Position = recOffset;
+			stream.Position += MFTRecord.OffsetForOwnerRights;
+			stream.Position += UserRights.OffsetForRights;
+
+			// нужно 2 байта. Поэтому обязательно short.
+			var bytes = BitConverter.GetBytes(newRights);
+			stream.Write(bytes, 0, bytes.Length);
+		}
+
+		/// <summary>
+		/// Создает нового пользователя. Без проверок.
+		/// </summary>
+		/// <param name="name">Имя пользователя</param>
+		/// <param name="login">Уникальный логин пользователя</param>
+		/// <param name="password">Незашифрованный пароль пользователя</param>
+		/// <returns>Результат создания пользователя</returns>
+		public CreateUserResult CreateNewUser(string name, string login, string password)
+		{
+			// Если уже макс. кол-во юзеров, то return MaxUsersCountReached
+			if (GetUsersCount() == GetMaxUsersCount())
+				return CreateUserResult.MaxUsersCountReached;
+
+			int usersStart = GetByteStartUsers();
+
+			int startPosition = usersStart;
+			stream.Position = startPosition;
+			byte[] checkedRecord = new byte[UserRecord.SizeInBytes];
+			do
+			{
+				stream.Read(checkedRecord, 0, checkedRecord.Length);
+			} while (GetIsUserExists(checkedRecord)); // нашли место, где UserNotExists -> на это место можно писать.
+			//нашел место. Теперь записать сюда данные. Индекс, бла-бла-бла. Индекс в любом случае можно взять из Position.
+
+			stream.Position -= UserRecord.SizeInBytes;
+			#region Создание записи
+			short recIndex = (short)((stream.Position - startPosition) / UserRecord.SizeInBytes);
+			byte[] newRecord = new UserRecord(recIndex,name,login, password).ToBytes();
+			#endregion
+			stream.Write(newRecord, 0, newRecord.Length);
+
+			// И не забыть еще увеличить UsersCount в Service.
+			IncreaseUsersCount();
+
+			return CreateUserResult.OK;
+		}
+
+		private bool GetIsUserExists(byte[] userRecord)
+		{
+			if (userRecord.Length < UserRecord.SizeInBytes)
+				throw new ArgumentException("Кол-во байт не соответствует норме", nameof(userRecord));
+			using (var ms = new MemoryStream(userRecord))
+			{
+				ms.Position = UserRecord.OffsetForName;
+				var buf = new byte[30];
+				ms.Read(buf, 0, buf.Length);
+
+				bool exists = BitConverter.ToString(buf).Replace("\0", "") != "";
+
+				return exists;
+			}
+		}
+
+		private int GetMFTRecordOffsetById(int mftIndex)
+		{
+			int offset = GetByteStartMFT();
+			offset += mftIndex * MFTRecord.SizeInBytes;
+
+			return offset;
 		}
 
 		public int GetBlockCountForBytes(int blockSizeInBytes, int bytesCount)
@@ -572,7 +664,7 @@ namespace FS_Emulator.FSTools
 				return CreateFileResult.MaxFilesNumberReached;
 			}
 
-			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, UserRights.AllRights));
+			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, UserRights.OnlyMeRights));
 //		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
 //
 
@@ -590,7 +682,6 @@ namespace FS_Emulator.FSTools
 		/// Создает запись MFT и возвращает ее индекс. Нет проверок на "можно ли добавить запись"
 		/// </summary>
 		/// <param name="fileName"></param>
-
 		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
 		{
 			
@@ -615,7 +706,7 @@ namespace FS_Emulator.FSTools
 			stream.Write(newRecord, 0, newRecord.Length);
 
 			// И не забыть еще увеличить FileCount в Service.
-			return IncreaseFileCount();
+			return IncreaseFilesCount();
 		}
 
 		/// <summary>
@@ -623,7 +714,7 @@ namespace FS_Emulator.FSTools
 		/// </summary>
 		/// <param name="count">Число, на которое нужно увеличить</param>
 		/// <returns>Новое кол-во файлов</returns>
-		private int IncreaseFileCount(int count = 1)
+		private int IncreaseFilesCount(int count = 1)
 		{
 			int startPosition = offsetForServiceZone + ServiceRecord.OffsetForFiles_count;
 			
@@ -633,7 +724,7 @@ namespace FS_Emulator.FSTools
 			stream.Read(buf, 0, buf.Length);
 			int oldfCount = BitConverter.ToInt32(buf,0);
 
-			var newfCount = oldfCount + 1;
+			var newfCount = oldfCount + count;
 			byte[] newfCountBytes = BitConverter.GetBytes(newfCount);
 			
 			// Запись нового FilesCount
@@ -648,7 +739,7 @@ namespace FS_Emulator.FSTools
 		/// </summary>
 		/// <param name="count">Число, на которое нужно уменьшить</param>
 		/// <returns>Новое кол-во файлов</returns>
-		private int DecreaseFileCount(int count = 1)
+		private int DecreaseFilesCount(int count = 1)
 		{
 			int startPosition = offsetForServiceZone + ServiceRecord.OffsetForFiles_count;
 
@@ -658,7 +749,7 @@ namespace FS_Emulator.FSTools
 			stream.Read(buf, 0, buf.Length);
 			int oldfCount = BitConverter.ToInt32(buf, 0);
 
-			var newfCount = oldfCount - 1;
+			var newfCount = oldfCount - count;
 			byte[] newfCountBytes = BitConverter.GetBytes(newfCount);
 
 			// Запись нового FilesCount
@@ -666,6 +757,24 @@ namespace FS_Emulator.FSTools
 			stream.Write(newfCountBytes, 0, newfCountBytes.Length);
 
 			return newfCount;
+		}
+
+		private void IncreaseUsersCount()
+		{
+			int startPosition = offsetForServiceZone + ServiceRecord.OffsetForUsers_count;
+
+			// считывание FilesCount
+			stream.Position = startPosition;
+			var buf = new byte[4];
+			stream.Read(buf, 0, buf.Length);
+			int olduCount = BitConverter.ToInt32(buf, 0);
+
+			var newUsersCount = olduCount + 1;
+			byte[] newUsersCountBytes = BitConverter.GetBytes(newUsersCount);
+
+			// Запись нового UsersCount
+			stream.Position = startPosition;
+			stream.Write(newUsersCountBytes, 0, newUsersCountBytes.Length);
 		}
 
 		private string GetFullFilePathByMFTRecord(byte[] record)
@@ -827,21 +936,25 @@ namespace FS_Emulator.FSTools
 			return bools[4] == true;
 		}
 
+
 		public bool OwnerCanRead(short rights)
 		{
 			var bools = new BitArray(rights);
 			return bools[0] == true;
 		}
+
 		public bool OthersCanRead(short rights)
 		{
 			var bools = new BitArray(rights);
 			return bools[0] == true;
 		}
+
 		public bool OwnerCanExecute(short rights)
 		{
 			var bools = new BitArray(rights);
 			return bools[2] == true;
 		}
+
 		public bool OthersCanExecute(short rights)
 		{
 			var bools = new BitArray(rights);

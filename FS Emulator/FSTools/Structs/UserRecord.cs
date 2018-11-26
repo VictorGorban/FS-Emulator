@@ -18,8 +18,12 @@ namespace FS_Emulator.FSTools.Structs
 		public const int OffsetForLogin = 32;
 		public const int OffsetForPasswordHash = 62;
 
+		public const int NameLength = 30;
+		public const int LoginLength = 30;
+		public const int PasswordHashLength = 64;
+
 		public short User_id;
-		// При удалении, буду ставить это поле в 0. Потому что имя пустым не бывает.
+		// не может быть "" при нормальных условиях. "" - если не существует или не создан.
 		public byte[] Name; // 30
 		public byte[] Login; // 30
 		public byte[] PasswordHash; // 64
