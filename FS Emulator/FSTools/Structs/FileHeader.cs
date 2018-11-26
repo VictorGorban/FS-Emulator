@@ -15,7 +15,7 @@ namespace FS_Emulator.FSTools.Structs
 		public const int OffsetForParentDirindexInMFT = 4;
 
 
-		public int IndexInMFT;
+		public int IndexInMFT; // если 0, то это или rootDir, или пустое место.
 		public int ParentDirIndexInMFT;
 
 		public FileHeader(int indexInMFT, int parentDirIndexInMFT)

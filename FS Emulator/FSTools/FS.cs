@@ -47,31 +47,11 @@ namespace FS_Emulator.FSTools
 			try
 			{
 				FormatFSFile(path, blockSizeInBytes, capacityInMegabytes);
-
-				//if (!TestFSFile(path, blockSizeInBytes, capacityInMegabytes, serviceZoneBytes, usersZoneBytes, list_BlocksBytes)) System.Windows.Forms.MessageBox.Show("Кошмааар!!!");;
-
 			}
 			catch (IOException)
 			{
 				System.Windows.Forms.MessageBox.Show("Не удается создать или записать файл.");
-
 			}
-
-		}
-		/// <summary>
-		/// Нужен только для теста.
-		/// </summary>
-		public bool TestFSFile(string path, int blockSizeInBytes, int capacityInMegabytes, byte[] usersZoneBytes, byte[] list_BlocksBytes)
-		{
-			// открываю файл, считываю зоны через MFT (т.е. стандартная функция, которую еще надо сделать) и сравниваю байты с ToBytes() моих структур.
-
-			// Зачем мне это нужно? Проверить считывание через MFT. И то, не забыл ли я чего.
-
-			// Блин, а ведь Size-то подобавлять в MFT я и забыл. Самое время это исправить на паре. 
-			// В алгоритме все в порядке (точно), надо Size присвоить после создания записи MFT. Все равно новая MFT запись 100% будет c Size=0. 
-			// А такие особенности, как с этими service файлами, есть только с ними. Поэтому логично присваивать Size после создания MFT. Все, пора спать.
-
-			return true;
 		}
 
 		public byte[] GetNewUsersZoneBytes()
@@ -130,7 +110,7 @@ namespace FS_Emulator.FSTools
 			dataForList_BlocksRecordBytes.AddRange(BitConverter.GetBytes(blockZoneOfList_BlocksFrom));
 			dataForList_BlocksRecordBytes.AddRange(BitConverter.GetBytes(blockZoneOfList_BlocksTo));
 
-			var List_BlocksRecord = new MFTRecord(3, "$List_Blocks", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, 77), dataForList_BlocksRecordBytes.ToArray(), isNotInMFT: true);
+			var List_BlocksRecord = new MFTRecord(3, "$List_Blocks", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, UserRights.OnlyMeRights), dataForList_BlocksRecordBytes.ToArray(), isNotInMFT: true);
 			#endregion
 
 			#region Users
@@ -144,7 +124,7 @@ namespace FS_Emulator.FSTools
 			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersZoneFrom));
 			dataForUsersRecordBytes.AddRange(BitConverter.GetBytes(blockUsersZoneTo));
 
-			var UsersRecord = new MFTRecord(4, "$Users", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, 77), dataForUsersRecordBytes.ToArray(), isNotInMFT: true);
+			var UsersRecord = new MFTRecord(4, "$Users", "$.", FileType.Bin, UserRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, UserRights.OnlyMeRights), dataForUsersRecordBytes.ToArray(), isNotInMFT: true);
 
 			#endregion
 
@@ -165,11 +145,11 @@ namespace FS_Emulator.FSTools
 			dataForMFTRecordBytes.AddRange(BitConverter.GetBytes(blockMFTRecordFrom));
 			dataForMFTRecordBytes.AddRange(BitConverter.GetBytes(blockMFTRecordTo));
 
-			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, 77), dataForMFTRecordBytes.ToArray(), isNotInMFT: true);
+			var MftRecord = new MFTRecord(1, "$MFT", "$.", FileType.Bin, MFTRecord.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, UserRights.OnlyMeRights), dataForMFTRecordBytes.ToArray(), isNotInMFT: true);
 			#endregion
 
 
-			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new UserRights(0, 77), listHeadersBytes.ToArray());
+			var RootDirRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new UserRights(0, UserRights.OnlyMeRights), listHeadersBytes.ToArray());
 
 
 			#endregion
@@ -193,7 +173,7 @@ namespace FS_Emulator.FSTools
 			listMFTBytes.AddRange(RootDirRecord.ToBytes());
 			listMFTBytes.AddRange(MftRecord.ToBytes());
 
-			var _2ndMFTRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new UserRights(0, 77), listHeadersBytes.ToArray())
+			var _2ndMFTRecord = new MFTRecord(0, "$./", "", FileType.Dir, FileHeader.SizeInBytes, DateTime.Now, DateTime.Now, FileFlags.SystemHidden, new UserRights(0, UserRights.OnlyMeRights), listHeadersBytes.ToArray())
 			{
 				Index = 2,
 				IsFileExists = false
@@ -592,18 +572,16 @@ namespace FS_Emulator.FSTools
 				return CreateFileResult.MaxFilesNumberReached;
 			}
 
-			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, userId, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, 77));
+			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, UserRights.AllRights));
+//		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
+//
 
 			// индекс в MFT получили, теперь добавить его в директорию
-			var addToDirResult = AddRecordToDir(parentDirIndex, indexOfNewFile);
+			var addToDirResult = AddHeaderToDir(parentDirIndex, indexOfNewFile);
 			if (addToDirResult == ModifyFileResult.NotEnoughSpace)
 			{
 				return CreateFileResult.NotEnoughSpace;
 			}
-
-			// Все, добавили запись в директорию
-			// добавляем запись в MFT
-
 
 			return CreateFileResult.OK;
 		}
@@ -639,6 +617,7 @@ namespace FS_Emulator.FSTools
 			// И не забыть еще увеличить FileCount в Service.
 			return IncreaseFileCount();
 		}
+
 		/// <summary>
 		/// Увеличивает значение кол-ва файлов в системе на указанное кол-во.
 		/// </summary>
@@ -707,6 +686,9 @@ namespace FS_Emulator.FSTools
 			}
 		}
 
+		/// <summary>
+		/// Возвращает номер байта, с которого начинается файл Users
+		/// </summary>
 		private int GetByteStartUsers()
 		{
 			byte[] data = GetFileDataByMFTIndex(UsersFileIndex);
@@ -721,41 +703,41 @@ namespace FS_Emulator.FSTools
 		}
 
 		/// <summary>
-		/// Пытается добавить новую запись в директорию с указанным индексом в MFT. Для этого нужен адрес этой записи, потому что надо пойти на диск и изменить данные.
+		/// Добавляет в директорию запись о файле
 		/// </summary>
-		/// <param name="mftIndex">Индекс файла-директории в MFT</param>
-		/// <param name="fileName">Имя создаваемого файла</param>
-		/// <param name="userId">Индекс пользователя, от имени которого происходит добавление</param>
-		/// <returns>Результат, удалось ли добавить запись.</returns>
-		public ModifyFileResult AddRecordToDir(int mftIndex, int userId)
+		/// <param name="mftDirIndex">Индекс директории в MFT</param>
+		/// <param name="mftFileIndex">Индекс добавляемого файла в MFT</param>
+		/// <returns>Результат добавления записи в директорию</returns>
+		public ModifyFileResult AddHeaderToDir(int mftDirIndex, int mftFileIndex)
 		{
 			// Идем по Data. Если находим запись с Index==0, то заменяем ее, возвращаем OK.
 			// Что ж, мы дошли до конца данных (fileSize). Если (MFTRecord.SpaceForData - fileSize) < FileHeader.SizeInBytes, то return NotEnoughSpace. Иначе без проблем записываем в конец.
-			int dirSize = GetFileSize(mftIndex);
+			int dirSize = GetFileSize(mftDirIndex);
 
 			if (MFTRecord.SpaceForData - dirSize < FileHeader.SizeInBytes)
 				return ModifyFileResult.NotEnoughSpace;
 
-			stream.Position = GetByteStartMFT() + mftIndex * MFTRecord.SizeInBytes;
+			var newHeader = new FileHeader(mftFileIndex, mftDirIndex);
+
+			stream.Position = GetByteStartMFT() + mftDirIndex * MFTRecord.SizeInBytes;
 			var startPosition = stream.Position + MFTRecord.OffsetForData;
 			var endPosition = startPosition + dirSize;
 
 			#region Собственно процесс поиска и добавления
 			stream.Position = startPosition;
 
-			while (stream.Position < endPosition)
+			FileHeader currHeader = default;
+			do
 			{
 				var buf = new byte[FileHeader.SizeInBytes];
 				stream.Read(buf, 0, buf.Length);
-				var fheader = FileHeader.FromBytes(buf);
-				if (fheader.IndexInMFT == 0) // Такого не может быть, т.к. 0 - это rootDir.
-				{
-					stream.Position -= FileHeader.SizeInBytes;
-					,b
-				}
+				currHeader = FileHeader.FromBytes(buf);
+			} while (stream.Position < endPosition && currHeader.IndexInMFT != 0);
 
-			}
-			// Ok, adding to end of the dir
+			// Ok, adding header to free space
+			stream.Position -= FileHeader.SizeInBytes;
+			var bytes = newHeader.ToBytes();
+			stream.Write(bytes, 0, bytes.Length);
 			#endregion
 
 			return ModifyFileResult.OK;
@@ -1019,23 +1001,12 @@ namespace FS_Emulator.FSTools
 
 		}
 
-		public ModifyFileResult ModifyFile(int mftIndex, byte[] newData)
+		public ModifyFileResult ModifyFile(int mftIndex, byte[] oldData, byte[] newData)
 		{
-			// Нда уж, вот тут придется подумать. Что, если файл полностью вмещается в его же пространство (и пространство после него?)
-			/* А ведь это идеальная ситуация. 
-			 * (Да хрен там, не будет такого. 
-			 * Под файл выделился блок - и все. Остальные записываются сразу после него. Тупо, но проще. )
-			 * */
 
 
 			return ModifyFileResult.OK;
 		}
-
-		//public void AppendDataToFile(byte[] path, byte[] fileName, byte[] newData)
-		//{
-
-		//}
-
 
 	}
 }
