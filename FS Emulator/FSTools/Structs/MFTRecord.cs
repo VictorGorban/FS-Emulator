@@ -78,7 +78,7 @@ namespace FS_Emulator.FSTools.Structs
 			{
 
 				Data = new byte[MFTRecord.SpaceForData];
-				FileSize = Data.Length;
+				FileSize = 0;
 			}
 
 

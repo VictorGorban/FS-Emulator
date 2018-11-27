@@ -50,7 +50,7 @@ namespace FS_Emulator.FSTools.Structs
 				{
 					byte[] buffer = new byte[4];
 					ms.Read(buffer, 0, buffer.Length);
-					res.IndexInMFT = BitConverter.ToInt32(buffer, 0);
+					res.ParentDirIndexInMFT = BitConverter.ToInt32(buffer, 0);
 				}
 			}
 
