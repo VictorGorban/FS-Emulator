@@ -53,7 +53,7 @@ namespace FS_Emulator.FSTools
 
 			if (path.Length == 0)
 			{
-				throw new ArgumentException("путь не может быть пустым",nameof(path));
+				return path;
 			}
 
 			if (path.Last() != '/')
