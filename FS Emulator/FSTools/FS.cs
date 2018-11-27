@@ -18,6 +18,7 @@ namespace FS_Emulator.FSTools
 		public int MaxFilesCount;
 		public Stream stream;
 		public int CurrentUserId;
+		public int CurrentDirId = 2; // Да, в идеале каждого отдельного юзера посылать в его директорию... Но это уже пространство для улучшения. Потом.
 		public const int RootId = 0;
 		public const int MFTFileIndex = 1;
 		public const int UsersFileIndex = 4;
@@ -222,20 +223,25 @@ namespace FS_Emulator.FSTools
 			byte[] rootDirBytes = GetFileDataByMFTRecord(GetMFTRecordByIndex(0));
 
 			// создаю файлы пользователей в корне. Пока что тут только Admin
-			CreateDir(0, "Users", 0); // от имени root.
+			var result = CreateDir(0, "Users", 0); // от имени root.
 			ChangeFileRights(2, UserRights.AllRights); // должно было создать с индексом 2
 
-			CreateDir(2, "Admin", 1); // от имени Admin. Права по умолчанию, OnlyMe.
-			// А сейчас что? Не записал запись в директорию? Почему FileSize остался 0?
-			int index = GetMFTIndexOfFileByParentDirAndFileName(2, "Admin");
+			int mftSize = GetMFTSize();
+			int rootDirSize = GetFileSize(0);
+
+			result = CreateDir(2, "Admin", 1); // от имени Admin. Права по умолчанию, OnlyMe.
 			
-			
+			int index = GetMFTIndexOfFileByParentDirAndFileName(2, "Admin"); // 5
+
+			mftSize = GetMFTSize(); // 6k
+			rootDirSize = GetFileSize(0); // должно остаться 32. Увеличиться должен размер директории Users.
+			var usersDirSize = GetFileSize(2);  // размер директории Users. Должен быть 8.
 
 		}
 
 		private UserRights GetFileOwnerRights(int mftFileIndex)
 		{
-			var offset = GetMFTRecordOffsetById(mftFileIndex);
+			var offset = GetMFTRecordOffsetByIndex(mftFileIndex);
 			offset += MFTRecord.OffsetForOwnerRights;
 
 			stream.Position = offset;
@@ -251,7 +257,7 @@ namespace FS_Emulator.FSTools
 		/// <param name="newUserId">UserId нового пользователя.</param>
 		private void ChangeFileOwner(int mftIndex, short newUserId)
 		{
-			int recOffset = GetMFTRecordOffsetById(mftIndex);
+			int recOffset = GetMFTRecordOffsetByIndex(mftIndex);
 
 			stream.Position = recOffset;
 			stream.Position += MFTRecord.OffsetForOwnerRights;
@@ -269,7 +275,7 @@ namespace FS_Emulator.FSTools
 		/// <param name="newRights">Новые права.</param>
 		private void ChangeFileRights(int mftIndex, short newRights)
 		{
-			int recOffset = GetMFTRecordOffsetById(mftIndex);
+			int recOffset = GetMFTRecordOffsetByIndex(mftIndex);
 
 			stream.Position = recOffset;
 			stream.Position += MFTRecord.OffsetForOwnerRights;
@@ -333,7 +339,7 @@ namespace FS_Emulator.FSTools
 			}
 		}
 
-		private int GetMFTRecordOffsetById(int mftIndex)
+		private int GetMFTRecordOffsetByIndex(int mftIndex)
 		{
 			int offset = GetByteStartMFT();
 			offset += mftIndex * MFTRecord.SizeInBytes;
@@ -688,12 +694,13 @@ namespace FS_Emulator.FSTools
 				return CreateFileResult.MaxFilesNumberReached;
 			}
 
+			// индекс == 5, все верно
 			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, UserRights.OnlyOwnerRights));
 //		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
 //
 
 			// индекс в MFT получили, теперь добавить его в директорию
-			var addToDirResult = AddHeaderToDir(parentDirIndex, indexOfNewFile);
+			var addToDirResult = AddFileHeaderToDir(parentDirIndex, indexOfNewFile);
 			if (addToDirResult == ModifyFileResult.NotEnoughSpace)
 			{
 				return CreateFileResult.NotEnoughSpace;
@@ -708,31 +715,64 @@ namespace FS_Emulator.FSTools
 		/// <param name="fileName"></param>
 		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
 		{
-			
 			path = path.ToNormalizedPath();
-
 			
 			int mftStart = GetByteStartMFT();
 			int startPosition = mftStart;
-			int endPosition = startPosition+GetFilesCount();//Надо в MFT менять FileSize. И использовать его здесь. А то пустое место почему-то не читает.
+			int endPosition = startPosition+GetFileSize(MFTFileIndex);//Надо в MFT менять FileSize. И использовать его здесь. А то пустое место почему-то не читает.
 			stream.Position = startPosition;
 			byte[] checkedRecord = new byte[MFTRecord.SizeInBytes];
+
+			bool checkedRecordExists;
 			do
 			{
+				checkedRecordExists = true;
+
 				stream.Read(checkedRecord, 0, checkedRecord.Length);
-			} while (stream.Position < endPosition && GetIsFileExists(checkedRecord));
+
+				if (!GetIsFileExists(checkedRecord))
+				{
+					checkedRecordExists = false;
+				}
+			} while (stream.Position < endPosition && checkedRecordExists);
 			//нашел место. Теперь записать сюда данные. Индекс, бла-бла-бла. Индекс в любом случае можно взять из Position.
 
-			stream.Position -= MFTRecord.SizeInBytes;
+			if (!checkedRecordExists)
+			{
+				stream.Position -= MFTRecord.SizeInBytes;
+			}
+			
+			
 			#region Создание записи
 			int recIndex = ((int)stream.Position - startPosition) / MFTRecord.SizeInBytes;
 			byte[] newRecord = new MFTRecord(recIndex, fileName, path, fileType, unitSize, timeCreation, timeModification, flags, userRights).ToBytes();
 			#endregion
 			stream.Write(newRecord, 0, newRecord.Length);
 
+			if (checkedRecordExists)
+			{
+				IncreaseMFTFileSize();
+			}
 			// И не забыть еще увеличить FilesCount в Service.
 			IncreaseFilesCount();
 			return recIndex;
+		}
+
+		private void IncreaseMFTFileSize()
+		{
+			var offset = GetMFTRecordOffsetByIndex(MFTFileIndex);
+			offset += MFTRecord.OffsetForFileSize;
+
+			var buf = new byte[4];
+			stream.Position = offset;
+			stream.Read(buf, 0, buf.Length);
+
+			int oldFileSize = BitConverter.ToInt32(buf, 0);
+			int newFileSize = oldFileSize + MFTRecord.SizeInBytes;
+			buf = BitConverter.GetBytes(newFileSize);
+
+			stream.Position -= buf.Length;
+			stream.Write(buf, 0, buf.Length);
 		}
 
 		/// <summary>
@@ -840,47 +880,96 @@ namespace FS_Emulator.FSTools
 		/// <summary>
 		/// Добавляет в директорию запись о файле
 		/// </summary>
-		/// <param name="mftDirIndex">Индекс директории в MFT</param>
+		/// <param name="mftParentDirIndex">Индекс директории в MFT</param>
 		/// <param name="mftFileIndex">Индекс добавляемого файла в MFT</param>
 		/// <returns>Результат добавления записи в директорию</returns>
-		public ModifyFileResult AddHeaderToDir(int mftDirIndex, int mftFileIndex)
+		public ModifyFileResult AddFileHeaderToDir(int mftParentDirIndex, int mftFileIndex)
 		{
 			// Идем по Data. Если находим запись с Index==0, то заменяем ее, возвращаем OK.
 			// Что ж, мы дошли до конца данных (fileSize). Если (MFTRecord.SpaceForData - fileSize) < FileHeader.SizeInBytes, то return NotEnoughSpace. Иначе без проблем записываем в конец.
-			int dirSize = GetFileSize(mftDirIndex);
+			int dirSize = GetFileSize(mftParentDirIndex);
 
 			if (MFTRecord.SpaceForData - dirSize < FileHeader.SizeInBytes)
 				return ModifyFileResult.NotEnoughSpace;
 
-			int dirMFTOffset = GetByteStartMFT() + mftDirIndex * MFTRecord.SizeInBytes;
-			var newHeader = new FileHeader(mftFileIndex, mftDirIndex);
+			int dirMFTOffset = GetByteStartMFT() + mftParentDirIndex * MFTRecord.SizeInBytes;
 
 			stream.Position = dirMFTOffset;
+
 			var startPosition = stream.Position + MFTRecord.OffsetForData;
 			var endPosition = startPosition + dirSize;
+
+			FileHeader newHeader;
+			byte[] bytes;
+
+			if(startPosition==endPosition) 
+			{ // записываем, увеличиваем размер и валим
+				stream.Position = startPosition;
+				newHeader = new FileHeader(mftFileIndex, mftParentDirIndex);
+				bytes = newHeader.ToBytes();
+				stream.Write(bytes, 0, bytes.Length);
+
+				IncreaseDirSize(mftParentDirIndex);
+				return ModifyFileResult.OK;
+			}
+
 
 			#region Собственно процесс поиска и добавления
 			stream.Position = startPosition;
 
 			FileHeader currHeader = default;
+
+			bool isHeaderFileExists; // if true, надо вернуться чтобы записать на его место.
 			do
 			{
+				isHeaderFileExists = true;
+
 				var buf = new byte[FileHeader.SizeInBytes];
 				stream.Read(buf, 0, buf.Length);
 				currHeader = FileHeader.FromBytes(buf);
-			} while (stream.Position < endPosition && currHeader.IndexInMFT != 0);
 
-			// Ok, adding header to free space
-			stream.Position -= FileHeader.SizeInBytes;
-			var bytes = newHeader.ToBytes();
+				if (currHeader.IndexInMFT == 0)
+					isHeaderFileExists = false;
+			} while (stream.Position < endPosition && isHeaderFileExists);
+
+
+			if (!isHeaderFileExists)
+			{
+				stream.Position -= FileHeader.SizeInBytes;
+			}
+
+			newHeader = new FileHeader(mftFileIndex, mftParentDirIndex);
+			bytes = newHeader.ToBytes();
 			stream.Write(bytes, 0, bytes.Length);
+
+
+			if (isHeaderFileExists) // значит, мы приписываем в конец
+			{
+				IncreaseDirSize(mftParentDirIndex);
+			}
+
+
 			#endregion
 
-			// Зафиксировать изменение размера директории
-			dirSize += FileHeader.SizeInBytes;
-			stream.Position = dirMFTOffset + MFTRecord.OffsetForFileSize;
-
 			return ModifyFileResult.OK;
+		}
+
+		private void IncreaseDirSize(int mftDirIndex)
+		{
+			int offset = GetMFTRecordOffsetByIndex(mftDirIndex);
+			offset += MFTRecord.OffsetForFileSize;
+
+			var buf = new byte[4];
+			stream.Position = offset;
+			stream.Read(buf, 0, buf.Length);
+
+			int oldFileSize = BitConverter.ToInt32(buf, 0);
+			int newFileSize = oldFileSize + FileHeader.SizeInBytes;
+			buf = BitConverter.GetBytes(newFileSize);
+
+			stream.Position -= buf.Length;
+			stream.Write(buf, 0, buf.Length);
+
 		}
 
 		public int GetFileSize(int mftIndex)
