@@ -1,6 +1,6 @@
 ﻿namespace FS_Emulator
 {
-    partial class Form1
+    partial class MainForm
     {
         /// <summary>
         /// Обязательная переменная конструктора.
@@ -32,6 +32,7 @@
 			this.фСToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.fsNewMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.fsOpenMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.форматироватьToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.outputTB = new System.Windows.Forms.TextBox();
 			this.inputTB = new System.Windows.Forms.TextBox();
 			this.menuMain.SuspendLayout();
@@ -51,23 +52,33 @@
 			// 
 			this.фСToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fsNewMenuItem,
-            this.fsOpenMenuItem});
+            this.fsOpenMenuItem,
+            this.форматироватьToolStripMenuItem});
 			this.фСToolStripMenuItem.Name = "фСToolStripMenuItem";
 			this.фСToolStripMenuItem.Size = new System.Drawing.Size(36, 20);
 			this.фСToolStripMenuItem.Text = "ФС";
+			this.фСToolStripMenuItem.Click += new System.EventHandler(this.фСToolStripMenuItem_Click);
 			// 
 			// fsNewMenuItem
 			// 
 			this.fsNewMenuItem.Name = "fsNewMenuItem";
-			this.fsNewMenuItem.Size = new System.Drawing.Size(121, 22);
+			this.fsNewMenuItem.Size = new System.Drawing.Size(161, 22);
 			this.fsNewMenuItem.Text = "Новая";
 			this.fsNewMenuItem.Click += new System.EventHandler(this.fsNewMenuItem_Click);
 			// 
 			// fsOpenMenuItem
 			// 
 			this.fsOpenMenuItem.Name = "fsOpenMenuItem";
-			this.fsOpenMenuItem.Size = new System.Drawing.Size(121, 22);
+			this.fsOpenMenuItem.Size = new System.Drawing.Size(161, 22);
 			this.fsOpenMenuItem.Text = "Открыть";
+			this.fsOpenMenuItem.Click += new System.EventHandler(this.fsOpenMenuItem_Click);
+			// 
+			// форматироватьToolStripMenuItem
+			// 
+			this.форматироватьToolStripMenuItem.Name = "форматироватьToolStripMenuItem";
+			this.форматироватьToolStripMenuItem.Size = new System.Drawing.Size(161, 22);
+			this.форматироватьToolStripMenuItem.Text = "Форматировать";
+			this.форматироватьToolStripMenuItem.Click += new System.EventHandler(this.форматироватьToolStripMenuItem_Click);
 			// 
 			// outputTB
 			// 
@@ -84,7 +95,8 @@
 			this.outputTB.Size = new System.Drawing.Size(796, 411);
 			this.outputTB.TabIndex = 1;
 			this.outputTB.TabStop = false;
-			this.outputTB.Text = "Open or create your FS to start";
+			this.outputTB.Text = "Откройте файл ФС, чтобы начать";
+			this.outputTB.TextChanged += new System.EventHandler(this.outputTB_TextChanged);
 			// 
 			// inputTB
 			// 
@@ -98,9 +110,9 @@
 			this.inputTB.Size = new System.Drawing.Size(796, 21);
 			this.inputTB.TabIndex = 2;
 			this.inputTB.TabStop = false;
-			this.inputTB.Text = "Test text";
+			this.inputTB.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.inputTB_KeyPress);
 			// 
-			// Form1
+			// MainForm
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -110,7 +122,7 @@
 			this.Controls.Add(this.outputTB);
 			this.Controls.Add(this.menuMain);
 			this.MainMenuStrip = this.menuMain;
-			this.Name = "Form1";
+			this.Name = "MainForm";
 			this.Text = "Form1";
 			this.Load += new System.EventHandler(this.Form1_Load);
 			this.menuMain.ResumeLayout(false);
@@ -128,6 +140,7 @@
         private System.Windows.Forms.ToolStripMenuItem fsOpenMenuItem;
         private System.Windows.Forms.TextBox outputTB;
         private System.Windows.Forms.TextBox inputTB;
-    }
+		private System.Windows.Forms.ToolStripMenuItem форматироватьToolStripMenuItem;
+	}
 }
 

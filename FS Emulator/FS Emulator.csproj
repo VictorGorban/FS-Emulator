@@ -49,14 +49,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="COMMANDS.cs" />
     <Compile Include="FSTools\CreateUserResult.cs" />
     <Compile Include="FSTools\ExtraConverters.cs" />
     <Compile Include="FSTools\MeasureConverters\Bytes.cs" />
-    <Compile Include="Form1.cs">
+    <Compile Include="FSTools\Structs\ShortFileInfo.cs" />
+    <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="FormCreateFS.cs">
       <SubType>Form</SubType>
@@ -69,6 +71,7 @@
     <Compile Include="FSTools\FS.cs" />
     <Compile Include="FSTools\MeasureConverters\Gigabytes.cs" />
     <Compile Include="FSTools\MeasureConverters\Kilobytes.cs" />
+    <Compile Include="FSTools\MeasureConverters\Kilobytes1.cs" />
     <Compile Include="FSTools\MeasureConverters\Megabytes.cs" />
     <Compile Include="FSTools\Structs\CreateFileResult.cs" />
     <Compile Include="FSTools\Structs\ModifyFileResult.cs" />
@@ -83,8 +86,8 @@
     <Compile Include="FSTools\Structs\UserRights.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FormCreateFS.resx">
       <DependentUpon>FormCreateFS.cs</DependentUpon>

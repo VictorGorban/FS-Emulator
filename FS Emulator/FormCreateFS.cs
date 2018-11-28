@@ -10,12 +10,19 @@ using System.Windows.Forms;
 
 namespace FS_Emulator
 {
-    public partial class FormCreateFS : Form
+    public partial class FormFormatFS : Form
     {
-        public FormCreateFS()
+        public FormFormatFS()
         {
             InitializeComponent();
         }
+
+		public FormFormatFS(string pathToSave):this()
+		{
+			this.Text = "Форматировать";
+			this.PathToSaveTB.Text = pathToSave;
+			this.BtSelectPathToSave.Enabled = false;
+		}
 
         int FSCapacity = 4;
         FSClusterSize clusterSize;
@@ -33,7 +40,7 @@ namespace FS_Emulator
 			var dialog = new SaveFileDialog
 			{
 				CheckPathExists = true,
-				InitialDirectory = @"E:\ForFS"
+				InitialDirectory = @"E:\ForFS",
 			};
 			var result = dialog.ShowDialog();
 

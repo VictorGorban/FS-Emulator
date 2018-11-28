@@ -18,13 +18,21 @@ namespace FS_Emulator.FSTools
 		public int MaxFilesCount;
 		public Stream stream;
 		public int CurrentUserId;
-		public int CurrentDirId = 2; // Да, в идеале каждого отдельного юзера посылать в его директорию... Но это уже пространство для улучшения. Потом.
+		//public int CurrentDirId = 2; // Да, в идеале каждого отдельного юзера посылать в его директорию... Но это уже пространство для улучшения. Потом.
 		public const int RootId = 0;
 		public const int MFTFileIndex = 1;
 		public const int UsersFileIndex = 4;
 		public const int offsetForServiceZone = 0;
 
+		public FS()
+		{
 
+		}
+
+		public FS(string path)
+		{
+			Open(path);
+		}
 
 		public void Open(string path)
 		{
@@ -89,7 +97,7 @@ namespace FS_Emulator.FSTools
 			var fileHeaders = new FileHeader[] {
 				new FileHeader(1,0),
 				new FileHeader(0,0), // В корневой директории; Удаленный файл (IndexInMFT==0)
-				new FileHeader(3,0), 
+				new FileHeader(3,0),
 				new FileHeader(4,0)
 			};
 
@@ -230,7 +238,7 @@ namespace FS_Emulator.FSTools
 			int rootDirSize = GetFileSize(0);
 
 			result = CreateDir(2, "Admin", 1); // от имени Admin. Права по умолчанию, OnlyMe.
-			
+
 			int index = GetMFTIndexOfFileByParentDirAndFileName(2, "Admin"); // 5
 
 			mftSize = GetMFTSize(); // 6k
@@ -264,7 +272,7 @@ namespace FS_Emulator.FSTools
 			stream.Position += UserRights.OffsetForUserId;
 
 			// нужно 2 байта. Поэтому обязательно short.
-			var bytes = BitConverter.GetBytes(newUserId); 
+			var bytes = BitConverter.GetBytes(newUserId);
 			stream.Write(bytes, 0, bytes.Length);
 		}
 
@@ -293,34 +301,29 @@ namespace FS_Emulator.FSTools
 		/// <param name="login">Уникальный логин пользователя</param>
 		/// <param name="password">Незашифрованный пароль пользователя</param>
 		/// <returns>Результат создания пользователя</returns>
-		public CreateUserResult CreateNewUser(string name, string login, string password)
+		public CreateUserResult AddUser(string name, string login, string password)
 		{
 			// Если уже макс. кол-во юзеров, то return MaxUsersCountReached
 			if (GetUsersCount() == GetMaxUsersCount())
 				return CreateUserResult.MaxUsersCountReached;
 
-			int usersStart = GetByteStartUsers();
+			throw new NotImplementedException();
 
-			int startPosition = usersStart;
-			stream.Position = startPosition;
-			byte[] checkedRecord = new byte[UserRecord.SizeInBytes];
-			do
+			if (GetIsUserExistsByLogin(login))
 			{
-				stream.Read(checkedRecord, 0, checkedRecord.Length);
-			} while (GetIsUserExists(checkedRecord)); // нашли место, где UserNotExists -> на это место можно писать.
-			//нашел место. Теперь записать сюда данные. Индекс, бла-бла-бла. Индекс в любом случае можно взять из Position.
+				return CreateUserResult.UserAlreadyExists;
+			}
 
-			stream.Position -= UserRecord.SizeInBytes;
-			#region Создание записи
-			short recIndex = (short)((stream.Position - startPosition) / UserRecord.SizeInBytes);
-			byte[] newRecord = new UserRecord(recIndex,name,login, password).ToBytes();
-			#endregion
-			stream.Write(newRecord, 0, newRecord.Length);
-
-			// И не забыть еще увеличить UsersCount в Service.
-			IncreaseUsersCount();
+			// Та же история, что и с AddNewMFTRcord. Нужен размер файла.
 
 			return CreateUserResult.OK;
+		}
+
+		private bool GetIsUserExistsByLogin(string login)
+		{
+			throw new NotImplementedException();
+
+			// Да, та же история, что и с MFT. Нужен размер файла.
 		}
 
 		private bool GetIsUserExists(byte[] userRecord)
@@ -695,9 +698,9 @@ namespace FS_Emulator.FSTools
 			}
 
 			// индекс == 5, все верно
-			int indexOfNewFile = AddNewMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, UserRights.OnlyOwnerRights));
-//		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
-//
+			int indexOfNewFile = AddMFTRecord(fileName, GetFullFilePathByMFTRecord(parentDirRecord), fileType, size_Unit, DateTime.Now, DateTime.Now, FileFlags.None, new UserRights((short)userId, UserRights.OnlyOwnerRights));
+			//		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
+			//
 
 			// индекс в MFT получили, теперь добавить его в директорию
 			var addToDirResult = AddFileHeaderToDir(parentDirIndex, indexOfNewFile);
@@ -713,13 +716,13 @@ namespace FS_Emulator.FSTools
 		/// Создает запись MFT и возвращает ее индекс. Нет проверок на "можно ли добавить запись"
 		/// </summary>
 		/// <param name="fileName"></param>
-		private int AddNewMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
+		private int AddMFTRecord(string fileName, string path, FileType fileType, int unitSize, DateTime timeCreation, DateTime timeModification, byte flags, UserRights userRights)
 		{
 			path = path.ToNormalizedPath();
-			
+
 			int mftStart = GetByteStartMFT();
 			int startPosition = mftStart;
-			int endPosition = startPosition+GetFileSize(MFTFileIndex);//Надо в MFT менять FileSize. И использовать его здесь. А то пустое место почему-то не читает.
+			int endPosition = startPosition + GetFileSize(MFTFileIndex);//Надо в MFT менять FileSize. И использовать его здесь. А то пустое место почему-то не читает.
 			stream.Position = startPosition;
 			byte[] checkedRecord = new byte[MFTRecord.SizeInBytes];
 
@@ -741,8 +744,8 @@ namespace FS_Emulator.FSTools
 			{
 				stream.Position -= MFTRecord.SizeInBytes;
 			}
-			
-			
+
+
 			#region Создание записи
 			int recIndex = ((int)stream.Position - startPosition) / MFTRecord.SizeInBytes;
 			byte[] newRecord = new MFTRecord(recIndex, fileName, path, fileType, unitSize, timeCreation, timeModification, flags, userRights).ToBytes();
@@ -783,19 +786,19 @@ namespace FS_Emulator.FSTools
 		private int IncreaseFilesCount(int count = 1)
 		{
 			int startPosition = offsetForServiceZone + ServiceRecord.OffsetForFiles_count;
-			
+
 			// считывание FilesCount
 			stream.Position = startPosition;
 			var buf = new byte[4];
 			stream.Read(buf, 0, buf.Length);
-			int oldfCount = BitConverter.ToInt32(buf,0);
+			int oldfCount = BitConverter.ToInt32(buf, 0);
 
 			var newfCount = oldfCount + count;
 			byte[] newfCountBytes = BitConverter.GetBytes(newfCount);
-			
+
 			// Запись нового FilesCount
 			stream.Position = startPosition;
-			stream.Write(newfCountBytes,0,newfCountBytes.Length);
+			stream.Write(newfCountBytes, 0, newfCountBytes.Length);
 
 			return newfCount;
 		}
@@ -902,7 +905,7 @@ namespace FS_Emulator.FSTools
 			FileHeader newHeader;
 			byte[] bytes;
 
-			if(startPosition==endPosition) 
+			if (startPosition == endPosition)
 			{ // записываем, увеличиваем размер и валим
 				stream.Position = startPosition;
 				newHeader = new FileHeader(mftFileIndex, mftParentDirIndex);
@@ -1046,25 +1049,25 @@ namespace FS_Emulator.FSTools
 			return true;
 		}
 
-		public bool OwnerCanWrite(short rights)
+		public static bool OwnerCanWrite(short rights)
 		{
 			bool can = ((rights & UserRights.OwnerCanWriteRights) != 0);
 			return can;
 		}
-		public bool OthersCanWrite(short rights)
+		public static bool OthersCanWrite(short rights)
 		{
 			bool can = ((rights & UserRights.OthersCanWriteRights) != 0);
 			return can;
 		}
 
 
-		public bool OwnerCanRead(short rights)
+		public static bool OwnerCanRead(short rights)
 		{
 			bool can = ((rights & UserRights.OwnerCanReadRights) != 0);
 			return can;
 		}
 
-		public bool OthersCanRead(short rights)
+		public static bool OthersCanRead(short rights)
 		{
 			bool can = ((rights & UserRights.OthersCanReadRights) != 0);
 			return can;
@@ -1082,6 +1085,24 @@ namespace FS_Emulator.FSTools
 			return bools[5] == true;
 		}
 
+
+
+		public string GetFileNameByIndex(int mftIndex)
+		{
+			var record = GetMFTRecordByIndex(mftIndex);
+			if (record == null)
+				throw new Exception("Все плохо");
+
+			using (var ms = new MemoryStream(record))
+			{
+				byte[] fnameBytes = new byte[MFTRecord.LengthOfFileName];
+				ms.Position = MFTRecord.OffsetForFileName;
+				ms.Read(fnameBytes, 0, fnameBytes.Length);
+
+				return fnameBytes.ToASCIIString().Replace("\0", "");
+			}
+		}
+
 		/// <summary>
 		/// Возвращает индекс файла в MFT по его имени, производя поиск в директории.
 		/// </summary>
@@ -1095,29 +1116,14 @@ namespace FS_Emulator.FSTools
 			var mftDirRec = GetMFTRecordByIndex(parentDirIndex);
 			if (mftDirRec == null)
 				return -1;
-			var dirData = GetFileDataByMFTRecord(mftDirRec);
 
-			using (var headersStream = new MemoryStream(dirData))
+			FileHeader[] existFilesHeaders = GetFileHeadersOfExistingFilesByDirIndex(parentDirIndex);
+			foreach (var header in existFilesHeaders)
 			{
-				while (headersStream.Position < dirData.Length)
-				{
-					var buf = new byte[FileHeader.SizeInBytes];
-					headersStream.Read(buf, 0, buf.Length);
-					var header = FileHeader.FromBytes(buf);
-
-					var recBytes = GetMFTRecordByIndex(header.IndexInMFT);
-					var recNameBytes = new byte[MFTRecord.LengthOfFileName];
-					
-					using (var recMS = new MemoryStream(recBytes))
-					{
-						recMS.Position = MFTRecord.OffsetForFileName;
-						recMS.Read(recNameBytes, 0, recNameBytes.Length);
-					}
-
-					if (recNameBytes.SequenceEqual(fileNameBytes))
-						return header.IndexInMFT;
-				}
+				if (fileName == GetFileNameByIndex(header.IndexInMFT))
+					return header.IndexInMFT;
 			}
+
 			// если так и не нашли
 			return -1;
 		}
@@ -1162,12 +1168,24 @@ namespace FS_Emulator.FSTools
 
 
 				#region Reading data as blocks numbers and filling the list of them
+				// блок данных, который был считан на предыдущем шаге.
+				byte[] alreadyReadBytes = new byte[4];
 				var bytes = new byte[4];
 				int block = 0;
+
+				recStream.Position = MFTRecord.OffsetForData;
 				do
 				{
-					recStream.Position = MFTRecord.OffsetForData;
 					recStream.Read(bytes, 0, bytes.Length);
+
+					if (bytes.SequenceEqual(alreadyReadBytes))
+					{
+						break;
+						/* Мы сюда попадаем только когда пытаемся считать пустое место 
+						(не получается, в bytes остается то же, что и было)*/
+					}
+					alreadyReadBytes = bytes;
+
 					block = BitConverter.ToInt32(bytes, 0);
 					if (block != 0)
 					{
@@ -1222,6 +1240,156 @@ namespace FS_Emulator.FSTools
 		{
 			return CreateFile(parentDirIndex, dirName, FileType.Dir, userId, FileHeader.SizeInBytes);
 		}
+
+		public string[] GetFilesInDirInShortForm(int dirIndex)
+		{
+			var res = new List<string>();
+
+			var headers = GetFileHeadersOfExistingFilesByDirIndex(dirIndex);
+			if (headers.Length == 0)
+			{
+				return new[] { "Тут пусто" };
+			}
+
+			foreach (var header in headers)
+			{
+				res.Add(GetShortFileInfo(header.IndexInMFT));
+			}
+
+			return res.ToArray();
+		}
+
+		public string GetShortFileInfo(int mftIndex)
+		{
+			// fileName, FileType, Time_Modification, FileSize, Owner, OwnerRights
+
+			string fileName = default;
+			FileType fileType = default; 
+			DateTime time_Modification = default; 
+			int fileSize = default; 
+			string ownerLogin = default; 
+			string ownerRights = default; 
+
+			var record = GetMFTRecordByIndex(mftIndex);
+			if(record is null)
+				throw new Exception("Все плохо");
+
+			#region Считывание данных из записи
+			byte[] buf;
+			using (var ms = new MemoryStream(record))
+			{
+				ms.Position = MFTRecord.OffsetForFileName;
+				buf = new byte[MFTRecord.LengthOfFileName];
+				ms.Read(buf, 0, buf.Length);
+				fileName = buf.ToASCIIString().Replace("\0","");
+
+				ms.Position = MFTRecord.OffsetForFileType;
+				buf = new byte[1];
+				ms.Read(buf, 0, buf.Length);
+				fileType = (FileType)buf[0];
+
+				ms.Position = MFTRecord.OffsetForTime_Modification;
+				buf = new byte[8]; // long
+				ms.Read(buf, 0, buf.Length);
+				time_Modification = BitConverter.ToInt64(buf, 0).ToDateTime();
+
+				ms.Position = MFTRecord.OffsetForFileSize;
+				buf = new byte[4];
+				ms.Read(buf, 0, buf.Length);
+				fileSize = BitConverter.ToInt32(buf, 0);
+
+				// ownerLogin. Сначала читаю индекс, потом по индексу получаю логин.
+				ms.Position = MFTRecord.OffsetForOwnerRights+UserRights.OffsetForUserId;
+				buf = new byte[2];
+				ms.Read(buf, 0, buf.Length);
+				var userId = BitConverter.ToInt16(buf, 0);
+				ownerLogin = GetUserLoginById(userId);
+
+				ms.Position = MFTRecord.OffsetForOwnerRights + UserRights.OffsetForRights;
+				buf = new byte[2];
+				ms.Read(buf, 0, buf.Length);
+				var rights = BitConverter.ToInt16(buf, 0);
+				ownerRights = rights.ToRightsString();
+			}
+			#endregion
+
+
+			var shortFileInfo = new ShortFileInfo()
+			{
+				FileName = fileName,
+				FileType = fileType,
+				Time_Modification = time_Modification,
+				FileSize = fileSize,
+				OwnerLogin = ownerLogin,
+				OwnerRights = ownerRights
+			};
+
+			
+
+			return shortFileInfo.ToString();
+
+		}
+
+		private string GetUserLoginById(short userId)
+		{
+			byte[] userBytes = GetUserById(userId);
+			if (userBytes is null)
+				throw new Exception("Юзер с таким Id не найден. Проблемы.");
+
+			
+		}
+
+		private byte[] GetUserById(short userId)
+		{
+			int usersFileSize = GetUsersFileSize();
+			int startFilePosition = GetByteStartUsers();
+			int endFilePosition = startFilePosition + usersFileSize;
+
+			if (usersFileSize<= userId * UserRecord.SizeInBytes)
+			{
+				return null;
+			}
+
+			// теперь запись точно в файле.
+
+
+		}
+
+		private int GetUsersFileSize()
+		{
+			return GetFileSize(UsersFileIndex);
+		}
+
+		public FileHeader[] GetFileHeadersOfExistingFilesByDirIndex(int dirIndex)
+		{
+			var res = new List<FileHeader>();
+
+			byte[] headersBytes = GetFileDataByMFTIndex(dirIndex);
+			if (headersBytes.Length == 0)
+			{
+				return new FileHeader[0];
+			}
+
+
+			using (var ms = new MemoryStream(headersBytes))
+			{
+				while (ms.Position != ms.Length)
+				{
+					byte[] buf = new byte[FileHeader.SizeInBytes];
+					ms.Read(buf, 0, FileHeader.SizeInBytes);
+
+					var header = FileHeader.FromBytes(buf);
+
+					if (header.IndexInMFT == 0) // если файл удален
+						continue;
+
+					res.Add(header);
+				}
+			}
+
+			return res.ToArray();
+		}
+
 
 		public void RemoveFile()
 		{

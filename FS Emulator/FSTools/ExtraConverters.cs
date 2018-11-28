@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FS_Emulator.FSTools.Structs;
 
 namespace FS_Emulator.FSTools
 {
@@ -96,6 +97,47 @@ namespace FS_Emulator.FSTools
 			return str;
 		}
 
+		public static string ToRightsString(this short rights)
+		{
+			string result = "";
+			if (FS.OwnerCanRead(rights))
+				result += "R";
+			else
+				result += "-";
+			if (FS.OwnerCanWrite(rights))
+				result += "W";
+			else
+				result += "-";
+			result += "_";
+			if (FS.OthersCanRead(rights))
+				result += "R";
+			else
+				result += "-";
+			if (FS.OthersCanWrite(rights))
+				result += "W";
+			else
+				result += "-";
+
+			return result;
+		}
+
+		public static short GetRightsFromString(string str)
+		{
+			str = str.ToUpper();
+			short result = UserRights.NoneRights;
+
+			if (str[0] == 'R')
+				result = (short)(result | UserRights.OwnerCanReadRights);
+			if (str[1] == 'W')
+				result = (short)(result | UserRights.OwnerCanWriteRights);
+
+			if (str[3] == 'R')
+				result = (short)(result | UserRights.OthersCanReadRights);
+			if (str[4] == 'W')
+				result = (short)(result | UserRights.OthersCanWriteRights);
+
+			return result;
+		}
 		
 	}
 }

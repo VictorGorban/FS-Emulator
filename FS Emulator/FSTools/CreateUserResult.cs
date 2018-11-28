@@ -3,6 +3,7 @@
 	public enum CreateUserResult
 	{
 		OK,
-		MaxUsersCountReached
+		MaxUsersCountReached,
+		UserAlreadyExists
 	}
 }
