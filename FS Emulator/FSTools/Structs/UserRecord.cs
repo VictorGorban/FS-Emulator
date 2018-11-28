@@ -11,19 +11,21 @@ namespace FS_Emulator.FSTools.Structs
 	[Serializable]
 	public struct UserRecord
 	{
-		public const int SizeInBytes = 126;
+		public const int SizeInBytes = 127;
 
 		public const int OffsetForUser_id = 0;
-		public const int OffsetForName = 2;
-		public const int OffsetForLogin = 32;
-		public const int OffsetForPasswordHash = 62;
+		public const int OffsetForIsUserExists = 2;
+		public const int OffsetForName = 3;
+		public const int OffsetForLogin = 33;
+		public const int OffsetForPasswordHash = 63;
 
 		public const int NameLength = 30;
 		public const int LoginLength = 30;
 		public const int PasswordHashLength = 64;
 
 		public short User_id;
-		// не может быть "" при нормальных условиях. "" - если не существует или не создан.
+		public bool IsUserExists;
+
 		public byte[] Name; // 30
 		public byte[] Login; // 30
 		public byte[] PasswordHash; // 64
@@ -32,6 +34,7 @@ namespace FS_Emulator.FSTools.Structs
 		public UserRecord(short user_id, string name, string login, string password)
 		{
 			User_id = user_id;
+			IsUserExists = true;
 			Name = Encoding.ASCII.GetBytes(name) ?? throw new ArgumentNullException(nameof(name));
 			if (Name.Length != 30)
 				Name = Name.TrimOrExpandTo(30);
@@ -53,6 +56,7 @@ namespace FS_Emulator.FSTools.Structs
 		{
 			var bytes = new List<byte>();
 			bytes.AddRange(BitConverter.GetBytes(User_id));
+			bytes.AddRange(BitConverter.GetBytes(IsUserExists));
 			bytes.AddRange(Name);
 			bytes.AddRange(Login);
 			bytes.AddRange(PasswordHash);
@@ -72,6 +76,11 @@ namespace FS_Emulator.FSTools.Structs
 					byte[] buffer = new byte[2];
 					ms.Read(buffer, 0, buffer.Length);
 					res.User_id = BitConverter.ToInt16(buffer, 0);
+				}
+				{
+					byte[] buffer = new byte[1];
+					ms.Read(buffer, 0, buffer.Length);
+					res.IsUserExists = BitConverter.ToBoolean(buffer, 0);
 				}
 				{
 					byte[] buffer = new byte[30];

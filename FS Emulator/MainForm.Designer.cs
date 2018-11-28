@@ -92,10 +92,12 @@
 			this.outputTB.Multiline = true;
 			this.outputTB.Name = "outputTB";
 			this.outputTB.ReadOnly = true;
+			this.outputTB.ScrollBars = System.Windows.Forms.ScrollBars.Horizontal;
 			this.outputTB.Size = new System.Drawing.Size(796, 411);
 			this.outputTB.TabIndex = 1;
 			this.outputTB.TabStop = false;
 			this.outputTB.Text = "Откройте файл ФС, чтобы начать";
+			this.outputTB.WordWrap = false;
 			this.outputTB.TextChanged += new System.EventHandler(this.outputTB_TextChanged);
 			// 
 			// inputTB

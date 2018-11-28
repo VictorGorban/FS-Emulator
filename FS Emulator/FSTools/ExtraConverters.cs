@@ -25,7 +25,7 @@ namespace FS_Emulator.FSTools
 
 		public static long ToLong(this DateTime dateTime)
 		{
-			return long.Parse("" + dateTime.Year + dateTime.Month + dateTime.Day + dateTime.Hour + dateTime.Minute + dateTime.Second);
+			return long.Parse("" + dateTime.Year + dateTime.Month.ToString("d2") + dateTime.Day.ToString("d2") + dateTime.Hour.ToString("d2") + dateTime.Minute.ToString("d2") + dateTime.Second.ToString("d2"));
 		}
 
 		public static DateTime ToDateTime(this long dateTimeLong)

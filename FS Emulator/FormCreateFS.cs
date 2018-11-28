@@ -63,7 +63,7 @@ namespace FS_Emulator
 
         private void BtOK_Click(object sender, EventArgs e)
         {
-            new FSTools.FS().FormatOrCreate(pathToSave, FSCapacity, 512);
+            new FSTools.FS().FormatOrCreate(pathToSave, FSCapacity, (int)Enum.Parse(typeof(FSClusterSize_CorrespondsBytes), cbox_ClusterSize.SelectedValue.ToString()));
         }
 
         private void PathToSaveTB_TextChanged(object sender, EventArgs e)

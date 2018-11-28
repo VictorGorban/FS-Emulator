@@ -28,17 +28,32 @@ namespace FS_Emulator
         public MainForm()
         {
             InitializeComponent();
-			
+			this.WindowState = FormWindowState.Maximized;
+
+			Commands = new Dictionary<string, KeyValuePair<int, Func<string[], string[]>>>
+			{
+				["dir"] = new KeyValuePair<int, Func<string[], string[]>>(0, WorkWithFS.GetFilesInCurrentDir),
+				["users"] = new KeyValuePair<int, Func<string[], string[]>>(0, WorkWithFS.GetAllUsers),
+				["createdir"] = new KeyValuePair<int, Func<string[], string[]>>(1, WorkWithFS.CreateDir),
+				["createfile"] = new KeyValuePair<int, Func<string[], string[]>>(1, WorkWithFS.CreateFile),
+				["createuser"] = new KeyValuePair<int, Func<string[], string[]>>(3, WorkWithFS.CreateUser),
+				["rename"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.Rename),
+				["goto"] = new KeyValuePair<int, Func<string[], string[]>>(1, WorkWithFS.GoTo),
+				["open"] = new KeyValuePair<int, Func<string[], string[]>>(1, WorkWithFS.OpenFile)
+
+			};
+
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
 			// открываю ФС
 			thisFSPath = @"E:\ForFS\FS";
-			WorkWithFS.fsToWork = new FS(thisFSPath);
+			/*WorkWithFS.fsToWork = new FS(thisFSPath);
 
 			outputTB.Clear();
-			outputTB.AppendText(helloText + NewLine);
+			outputTB.AppendText(helloText + NewLine);*/
+
 		}
 
         private void fsNewMenuItem_Click(object sender, EventArgs e)
@@ -64,7 +79,7 @@ namespace FS_Emulator
 
 			if (dialogResult == DialogResult.OK)
 			{
-				WorkWithFS.fsToWork?.stream?.Close();
+				//WorkWithFS.fsToWork?.stream?.Dispose();
 				thisFSPath = dialog.FileName;
 				WorkWithFS.fsToWork = new FS(dialog.FileName);
 
@@ -82,11 +97,12 @@ namespace FS_Emulator
 				return;
 			}
 
-			WorkWithFS.fsToWork?.stream?.Close();
+			WorkWithFS.fsToWork.Close();
 
 			var form = new FormFormatFS(thisFSPath);
 			form.ShowDialog();
 
+			WorkWithFS.fsToWork.Open(thisFSPath);
 		}
 
 		private void фСToolStripMenuItem_Click(object sender, EventArgs e)
@@ -114,7 +130,7 @@ namespace FS_Emulator
 
 			if (args.Length != 0)
 			{
-				var firstArg = args[0];
+				var firstArg = args[0].ToLower();
 
 				if (!Commands.Keys.Contains(firstArg))
 				{
@@ -134,8 +150,6 @@ namespace FS_Emulator
 				var command = paramsAndCommand.Value;
 				string[] results = command.Invoke(parameters);
 				Log(results);
-
-
 
 
 			}
@@ -164,7 +178,46 @@ namespace FS_Emulator
 			/// <returns>Краткая информация о каждом файле в текущей директории</returns>
 			public static string[] GetFilesInCurrentDir(string[] _)
 			{
-				return fsToWork.GetFilesInDirInShortForm(currentDirIndex);
+				return fsToWork.GetExistingFilesInDirInShortForm(currentDirIndex);
+			}
+
+			/// <param name="_">Пустой массив параметров.</param>
+			/// <returns>Краткая информация о каждом пользователе</returns>
+			public static string[] GetAllUsers(string[] _)
+			{
+				return fsToWork.GetAllExistingUsersStrings();
+			}
+
+			internal static string[] CreateDir(string[] arg)
+			{
+				// не забываем о возвращении ошибок...
+				// Например, нельзя включать пробелы и /. Почему пробелы - не помню.
+				throw new NotImplementedException();
+			}
+
+			internal static string[] CreateFile(string[] arg)
+			{
+				throw new NotImplementedException();
+			}
+
+			internal static string[] CreateUser(string[] arg)
+			{
+				throw new NotImplementedException();
+			}
+
+			internal static string[] Rename(string[] arg)
+			{
+				throw new NotImplementedException();
+			}
+
+			internal static string[] GoTo(string[] arg)
+			{
+				throw new NotImplementedException();
+			}
+
+			internal static string[] OpenFile(string[] arg)
+			{
+				throw new NotImplementedException();
 			}
 		}
 
