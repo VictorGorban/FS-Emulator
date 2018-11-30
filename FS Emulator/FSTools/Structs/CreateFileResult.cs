@@ -25,6 +25,12 @@ namespace FS_Emulator.FSTools.Structs
 		/// <summary>
 		/// Уже достигнуто макс. кол-во файлов (макс. кол-во записей в MFT)
 		/// </summary>
-		MaxFilesNumberReached
+		MaxFilesNumberReached,
+		/// <summary>
+		/// Нужно для переименования
+		/// </summary>
+		FileNotFound,
+		InvalidFileName,
+		PathTooLong
 	}
 }

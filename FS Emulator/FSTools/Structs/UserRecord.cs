@@ -19,8 +19,8 @@ namespace FS_Emulator.FSTools.Structs
 		public const int OffsetForLogin = 33;
 		public const int OffsetForPasswordHash = 63;
 
-		public const int NameLength = 30;
-		public const int LoginLength = 30;
+		public const int LengthForName = 30;
+		public const int LengthForLogin = 30;
 		public const int PasswordHashLength = 64;
 
 		public short User_id;
@@ -43,15 +43,25 @@ namespace FS_Emulator.FSTools.Structs
 			if (Login.Length != 30)
 				Login = Login.TrimOrExpandTo(30);
 
+			PasswordHash = ComputeHash(password);
+
+		}
+
+		public static byte[] ComputeHash(string password)
+		{
+			byte[] result;
+
 			if (password == null)
 				throw new ArgumentNullException(nameof(password));
 			using (var sha = System.Security.Cryptography.SHA512.Create())
 			{
 				var buffer = Encoding.ASCII.GetBytes(password);
-				PasswordHash = sha.ComputeHash(buffer);
+				result = sha.ComputeHash(buffer);
 			}
 
+			return result;
 		}
+
 		public byte[] ToBytes()
 		{
 			var bytes = new List<byte>();
@@ -101,6 +111,12 @@ namespace FS_Emulator.FSTools.Structs
 			}
 
 			return res;
+		}
+
+		public override string ToString()
+		{
+			return string.Format("{0,20} {1,20}", Name.ToASCIIString(),Login.ToASCIIString());
+
 		}
 	}
 }

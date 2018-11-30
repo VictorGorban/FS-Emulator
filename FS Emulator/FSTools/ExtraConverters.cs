@@ -72,7 +72,7 @@ namespace FS_Emulator.FSTools
 
 			if (path.Length == 0)
 			{
-				throw new ArgumentException("путь не может быть пустым", nameof(path));
+				return "".ToBytes(); // Если это директория корня. Она пустая.
 			}
 
 			if (path.Last() != '/')

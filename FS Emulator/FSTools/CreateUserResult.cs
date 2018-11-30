@@ -4,6 +4,10 @@
 	{
 		OK,
 		MaxUsersCountReached,
-		UserAlreadyExists
+		UserAlreadyExists,
+		/// <summary>
+		/// При создании пользователя, я еще создаю ему папку. Папка может быть не создана (maxNumberOfFiles, notEnoughRights)
+		/// </summary>
+		OKButCanNotCreateUserDir
 	}
 }

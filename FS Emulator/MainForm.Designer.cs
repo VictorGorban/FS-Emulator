@@ -86,7 +86,7 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.outputTB.BackColor = System.Drawing.Color.Black;
-			this.outputTB.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+			this.outputTB.Font = new System.Drawing.Font("Lucida Console", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
 			this.outputTB.ForeColor = System.Drawing.Color.Green;
 			this.outputTB.Location = new System.Drawing.Point(2, 26);
 			this.outputTB.Multiline = true;
@@ -105,14 +105,14 @@
 			this.inputTB.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.inputTB.BackColor = System.Drawing.Color.Black;
-			this.inputTB.Font = new System.Drawing.Font("Lucida Console", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+			this.inputTB.Font = new System.Drawing.Font("Lucida Console", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
 			this.inputTB.ForeColor = System.Drawing.Color.Green;
 			this.inputTB.Location = new System.Drawing.Point(2, 434);
 			this.inputTB.Name = "inputTB";
 			this.inputTB.Size = new System.Drawing.Size(796, 21);
 			this.inputTB.TabIndex = 2;
 			this.inputTB.TabStop = false;
-			this.inputTB.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.inputTB_KeyPress);
+			this.inputTB.KeyDown += new System.Windows.Forms.KeyEventHandler(this.inputTB_KeyDown);
 			// 
 			// MainForm
 			// 
