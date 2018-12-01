@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace FS_Emulator.FSTools
 {
-	public class FS
+	public partial class FS
 	{
 		public int FSNameSize = 30;
 		public int MaxUsersCount = 64;
@@ -67,7 +67,7 @@ namespace FS_Emulator.FSTools
 		public byte[] GetNewUsersZoneBytes()
 		{
 			var usersZoneBytes = new List<byte>();
-			var firstUser = new UserRecord(0, "Root", "root", "");
+			var firstUser = new UserRecord(0, "Root", "root", "root");
 			var secondUser = new UserRecord(1, "Admin", "admin", "admin");
 
 			var bytes = new List<byte>();
@@ -110,7 +110,7 @@ namespace FS_Emulator.FSTools
 			#endregion
 
 			#region Создание записей MFT
-			var blocksCountForServiceZone = 1; // никак больше не получится. Она там весит 60Б
+			var blocksCountForServiceZone = 1; // никак больше не получится. Она там весит 75Б
 			var blockServiceZoneFrom = 0;
 			var blockServiceZoneTo = blockServiceZoneFrom + blocksCountForServiceZone;
 
@@ -124,6 +124,7 @@ namespace FS_Emulator.FSTools
 			dataForList_BlocksRecordBytes.AddRange(BitConverter.GetBytes(blockZoneOfList_BlocksTo));
 
 			var List_BlocksRecord = new MFTRecord(3, "$List_Blocks", "$.", FileType.Bin, 1, DateTime.Now, DateTime.Now, FileFlags.UnfragmentedSystemHidden, new UserRights(0, UserRights.OnlyOwnerRights), dataForList_BlocksRecordBytes.ToArray(), isNotInMFT: true);
+			List_BlocksRecord.FileSize = list_BlocksBytes.Count();
 			#endregion
 
 			#region Users
@@ -205,7 +206,8 @@ namespace FS_Emulator.FSTools
 				Max_files_count_InsideDir = MFTRecord.SpaceForData / FileHeader.SizeInBytes,
 				Files_count = 4,
 				Max_users_count = 64,
-				Number_Of_Blocks = numberOfBlocks
+				Number_Of_Blocks = numberOfBlocks,
+				Number_Of_Free_Blocks = numberOfBlocks,
 			};
 			serviceRecord.Users_count = 2; // root and admin
 
@@ -249,11 +251,21 @@ namespace FS_Emulator.FSTools
 				rootDirSize = GetFileSize(0);
 				var usersDirSize = GetFileSize(2);
 				var strings = GetExistingFilesInDirInShortForm(2);
+
+
+				// посткриптум
+				var listBusyBlocks = new List<int>();
+				for (var i = 0; i < GetBlockStartData(); i++)
+				{
+					listBusyBlocks.Add(i);
+				}
+				SetBlocksBusy(listBusyBlocks);
 			}
 
 			#endregion
 
 
+			
 
 		}
 
@@ -417,12 +429,17 @@ namespace FS_Emulator.FSTools
 			return UserRights.FromBytes(bytes);
 		}
 
+		internal bool UserCanWriteFile(int fileIndex, int userId)
+		{
+			return UserCanWriteFile(GetMFTRecordByIndex(fileIndex), userId);
+		}
+
 		/// <summary>
 		/// Меняет владельца файла на нового. Подразумевается, что операция делается из-под Root.
 		/// </summary>
 		/// <param name="mftIndex">Индекс файла в MFT, владельца которого надо поменять</param>
 		/// <param name="newUserId">UserId нового пользователя.</param>
-		private void ChangeFileOwner(int mftIndex, short newUserId)
+		public void ChangeFileOwner(int mftIndex, short newUserId)
 		{
 			int recOffset = GetMFTRecordOffsetByIndex(mftIndex);
 
@@ -435,12 +452,14 @@ namespace FS_Emulator.FSTools
 			stream.Write(bytes, 0, bytes.Length);
 		}
 
+		
+
 		/// <summary>
 		/// Меняет права владельца файла. Без проверок.
 		/// </summary>
 		/// <param name="mftIndex">Индекс файла в MFT</param>
 		/// <param name="newRights">Новые права.</param>
-		private void ChangeFileRights(int mftIndex, short newRights)
+		public void ChangeFileRights(int mftIndex, short newRights)
 		{
 			int recOffset = GetMFTRecordOffsetByIndex(mftIndex);
 
@@ -516,6 +535,14 @@ namespace FS_Emulator.FSTools
 				return CreateUserResult.OKButCanNotCreateUserDir;
 
 			return CreateUserResult.OK;
+		}
+
+		internal ServiceRecord GetServiceRecord()
+		{
+			stream.Position = 0;
+			var buf = new byte[ServiceRecord.SizeInBytes];
+			stream.Read(buf, 0, buf.Length);
+			return ServiceRecord.FromBytes(buf);
 		}
 
 		private void IncreaseUsersFileSize()
@@ -956,7 +983,7 @@ namespace FS_Emulator.FSTools
 			return CreateFileResult.OK;
 		}
 
-		private bool ValidateFileName(string fileName)
+		public bool ValidateFileName(string fileName)
 		{
 			if (fileName.Contains('/'))
 				return false;
@@ -1246,6 +1273,8 @@ namespace FS_Emulator.FSTools
 
 		public bool GetIsFileExists(byte[] mftRecord)
 		{
+			if (mftRecord is null)
+				return false;
 			if (mftRecord.Length != MFTRecord.SizeInBytes)
 				throw new ArgumentException("Кол-во байт не соответствует норме", nameof(mftRecord));
 			using (var ms = new MemoryStream(mftRecord))
@@ -1586,10 +1615,7 @@ namespace FS_Emulator.FSTools
 				OwnerRights = ownerRights
 			};
 
-
-
 			return shortFileInfo.ToString();
-
 		}
 
 		private string GetUserLoginById(short userId)
@@ -1763,10 +1789,10 @@ namespace FS_Emulator.FSTools
 
 		}
 
-		private bool UserCanWriteFile(int targetFileIndex, int userId)
+		/*private bool UserCanWriteFile(int targetFileIndex, int userId)
 		{
 			return UserCanWriteFile(GetMFTRecordByIndex(targetFileIndex), userId);
-		}
+		}*/
 
 		public ModifyFileResult ModifyFile(int mftIndex, byte[] oldData, byte[] newData)
 		{

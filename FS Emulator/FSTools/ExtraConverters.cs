@@ -123,6 +123,9 @@ namespace FS_Emulator.FSTools
 
 		public static short GetRightsFromString(string str)
 		{
+			if (str == null || str.Length < 5)
+				throw new ArgumentException("Строка недостаточной длины");
+
 			str = str.ToUpper();
 			short result = UserRights.NoneRights;
 

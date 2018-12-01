@@ -173,5 +173,5 @@
         private System.Windows.Forms.Button BtOK;
         private System.Windows.Forms.NumericUpDown numericUpDown1;
         private System.Windows.Forms.TextBox TB_MB;
-    }
+	}
 }

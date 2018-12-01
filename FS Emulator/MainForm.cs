@@ -42,9 +42,10 @@ namespace FS_Emulator
 				/**/
 				["createuser"] = new KeyValuePair<int, Func<string[], string[]>>(3, WorkWithFS.CreateUser),
 				/**/
-				["rename"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.Rename),
-				/**/
+				["rename"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.Rename), // Приятнее бы было rename file1 to newName, но... Некоторые другие в таком стиле не сделаешь, да и потеряется общий стиль.
+																									/**/
 				["goto"] = new KeyValuePair<int, Func<string[], string[]>>(1, WorkWithFS.GoTo),
+				/**/
 				["open"] = new KeyValuePair<int, Func<string[], string[]>>(1, WorkWithFS.OpenFile),
 				/**/
 				["login"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.Login),
@@ -52,6 +53,21 @@ namespace FS_Emulator
 				["logout"] = new KeyValuePair<int, Func<string[], string[]>>(0, WorkWithFS.Logout),
 				/**/
 				["whoami"] = new KeyValuePair<int, Func<string[], string[]>>(0, WorkWithFS.WhoAmI),
+				/**/
+				["systeminfo"] = new KeyValuePair<int, Func<string[], string[]>>(0, WorkWithFS.SystemInfo),
+				/**/
+				["changeowner"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.ChangeFileOwner),
+				/**/
+				["changerights"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.ChangeFileRights),
+				///**/
+				//["changeusername"] = new KeyValuePair<int, Func<string[], string[]>>(3, WorkWithFS.ChangeUserName),
+				///**/
+				//["changeuserlogin"] = new KeyValuePair<int, Func<string[], string[]>>(3, WorkWithFS.ChangeUserLogin),
+				///**/
+				//["changeuserpassword"] = new KeyValuePair<int, Func<string[], string[]>>(3, WorkWithFS.ChangeUserPassword),
+				/**/
+				["move"] = new KeyValuePair<int, Func<string[], string[]>>(2, WorkWithFS.MoveFile),
+
 			};
 
 		}
@@ -251,7 +267,7 @@ namespace FS_Emulator
 				switch (createFileResult)
 				{
 					case CreateFileResult.OK:
-						result[0] = "Файл создан";
+						result[0] = "Готово";
 						break;
 					case CreateFileResult.FileAlreadyExists:
 						result[0] = "Ошибка. Такой файл уже существует";
@@ -422,7 +438,61 @@ namespace FS_Emulator
 
 			internal static string[] OpenFile(string[] args)
 			{
-				throw new NotImplementedException();
+				string fileName = args[0];
+				var result = new string[1];
+
+				var fileIndex = fs.GetMFTIndexOfExistingFileByParentDirAndFileName(thisDirIndex, fileName);
+
+
+
+				if (fileIndex < 0)
+				{
+					result[0] = "Такого файла не существует";
+					return result;
+				}
+
+				if (fs.GetFileTypeByRecord(fs.GetMFTRecordByIndex(fileIndex)) == FileType.Dir)
+				{
+					result[0] = "Ошибка. Открывать можно только файлы, а это директория";
+					return result;
+				}
+
+				if (!fs.UserCanReadFile(fileIndex, thisUserId))
+				{
+					result[0] = "У вас нет прав на чтение этого файла";
+					return result;
+				}
+
+				bool userCanWrite = fs.UserCanWriteFile(fileIndex, thisUserId);
+
+				string oldText = fs.GetFileDataByMFTIndex(fileIndex).ToASCIIString();
+				string pathToSaveData = "newFileData.txt";
+				string newText;
+
+				// Создаю форму с textBox и button "Save". Если userCanWrite, то button видно.
+				var form = new FormModifyFile(oldText, userCanWrite, pathToSaveData);
+				var showRes = form.ShowDialog();
+
+				if (showRes == DialogResult.OK)
+				{
+					using (TextReader reader = new StreamReader(pathToSaveData))
+					{
+						newText = reader.ReadToEnd();
+					}
+					var modifyFileResult = fs.ModifyFile(fileIndex, newText, thisUserId);
+					switch (modifyFileResult)
+					{
+						case ModifyFileResult.NotEnoughRights:
+							result[0] = "Недостаточно прав на изменение файла";
+							return result;
+					}
+				}
+
+
+
+				result[0] = "Готово";
+				return result;
+
 			}
 
 			internal static string[] Login(string[] args)
@@ -454,7 +524,7 @@ namespace FS_Emulator
 			internal static string[] Logout(string[] args)
 			{
 				thisUserId = -1;
-				return new string[] {"Готово"};
+				return new string[] { "Готово" };
 			}
 
 			internal static string[] WhoAmI(string[] _)
@@ -477,6 +547,126 @@ namespace FS_Emulator
 				path += "/>";
 
 				return new[] { path };
+			}
+
+			internal static string[] SystemInfo(string[] _)
+			{
+				var rec = fs.GetServiceRecord();
+
+				var result = new string[9];
+				result[0] = $"			Размер блока:            {rec.BlockSizeInBytes}";
+				result[1] = $"			Общее число блоков:      {rec.Number_Of_Blocks}";
+				result[2] = $"			Из них свободных:        {rec.Number_Of_Free_Blocks}";
+				result[3] = $"			Максимум файлов:         {rec.Max_files_count}";
+				result[4] = $"			Максимум файлов в папке: {rec.Max_files_count_InsideDir}";
+				result[5] = $"			Максимум пользователей:  {rec.Max_users_count}";
+				result[6] = $"			Файлов:                  {rec.Files_count}";
+				result[7] = $"			Пользователей:           {rec.Users_count}";
+				result[8] = $"			Версия файловой системы: {rec.FS_Version.ToASCIIString()}";
+
+				return result;
+			}
+
+			/// <summary>
+			/// Сменить владельца файла.
+			/// </summary>
+			/// <param name="arg">аргументы командной строки в формате "имя_файла логин_нового_владельца"</param>
+			/// <returns>аргументы командной строки в формате "имя_файла логин_нового_владельца"</returns>
+			internal static string[] ChangeFileOwner(string[] arg)
+			{
+				var res = new string[1];
+
+				string fileName = arg[0];
+				string login = arg[1];
+
+				var fileIndex = fs.GetMFTIndexOfExistingFileByParentDirAndFileName(thisDirIndex, fileName);
+				if (fileIndex < 0)
+				{
+					res[0] = "Ошибка. Файл не найден";
+					return res;
+				}
+				if (!fs.UserCanWriteFile(fileIndex, thisUserId))
+				{
+					res[0] = "Ошибка. Недостаточно прав";
+					return res;
+				}
+
+				var newUser = fs.GetUserByLogin(login);
+				if (newUser.Equals(default))
+				{
+					res[0] = "Ошибка. Пользователь не найден";
+					return res;
+				}
+				short newUserId = newUser.User_id;
+
+
+				// проверка fileName на существование в папке (вообще мне нужен Index)
+				// проверка GetUserByLogin(login); if -1, return fail
+				// проверка UserCanWriteFile
+				// сам change
+
+				fs.ChangeFileOwner(fileIndex, newUserId);
+
+				res[0] = "Готово";
+				return res;
+			}
+
+			/// <summary>
+			/// Сменить права владельца файла.
+			/// </summary>
+			/// <param name="arg">аргументы командной строки в формате "имя_файла новые_права"</param>
+			/// <returns></returns>
+			internal static string[] ChangeFileRights(string[] arg)
+			{
+				// проверка fileName на существование в папке (вообще мне нужен Index)
+				// проверка UserCanWriteFile
+				// сам change
+
+				var res = new string[1];
+
+				string fileName = arg[0];
+				string rightsString = arg[1];
+
+				var fileIndex = fs.GetMFTIndexOfExistingFileByParentDirAndFileName(thisDirIndex, fileName);
+				if (fileIndex < 0)
+				{
+					res[0] = "Ошибка. Файл не найден";
+					return res;
+				}
+
+				if (!fs.UserCanWriteFile(fileIndex, thisUserId))
+				{
+					res[0] = "Ошибка. Недостаточно прав";
+					return res;
+				}
+
+				short newRights = 0;
+				try
+				{
+					newRights = ExtraConverters.GetRightsFromString(rightsString);
+				}
+				catch (ArgumentException)
+				{
+					res[0] = "Ошибка. Неверно задана строка прав";
+					return res;
+				}
+
+				fs.ChangeFileRights(fileIndex, newRights);
+				res[0] = "Готово";
+				return res;
+			}
+
+			/// <summary>
+			/// Перемещает файл или папку в другую папку
+			/// </summary>
+			/// <param name="arg">аргументы командной строки в формате "имя_файла_или_папки новый_путь_к_директории"</param>
+			/// <returns></returns>
+			internal static string[] MoveFile(string[] arg)
+			{
+				// Проверки...
+				// MoveFile
+
+				throw new NotImplementedException();
 			}
 		}
 

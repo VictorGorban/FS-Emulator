@@ -50,9 +50,17 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="COMMANDS.cs" />
+    <Compile Include="FormModifyFile.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormModifyFile.Designer.cs">
+      <DependentUpon>FormModifyFile.cs</DependentUpon>
+    </Compile>
     <Compile Include="FSTools\CreateUserResult.cs" />
     <Compile Include="FSTools\ExtraConverters.cs" />
+    <Compile Include="FSTools\FS2.cs" />
     <Compile Include="FSTools\MeasureConverters\Bytes.cs" />
+    <Compile Include="FSTools\Structs\MyBitArray.cs" />
     <Compile Include="FSTools\Structs\ShortFileInfo.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
@@ -86,6 +94,9 @@
     <Compile Include="FSTools\Structs\UserRights.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="FormModifyfile.resx">
+      <DependentUpon>FormModifyFile.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>

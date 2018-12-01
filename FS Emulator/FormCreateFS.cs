@@ -64,11 +64,13 @@ namespace FS_Emulator
         private void BtOK_Click(object sender, EventArgs e)
         {
             new FSTools.FS().FormatOrCreate(pathToSave, FSCapacity, (int)Enum.Parse(typeof(FSClusterSize_CorrespondsBytes), cbox_ClusterSize.SelectedValue.ToString()));
-        }
+			MessageBox.Show("Готово!");
+		}
 
         private void PathToSaveTB_TextChanged(object sender, EventArgs e)
         {
             pathToSave = (sender as TextBox).Text;
         }
-    }
+
+	}
 }
