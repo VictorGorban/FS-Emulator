@@ -385,7 +385,7 @@ namespace FS_Emulator
 				}
 
 				// GetDirectoryName и GetFileName придется заменить своими методами. потому что Path возвращает хрень какую-то.
-				int destinationDirIndex = fs.GetMFTIndexByPathAndFileName(fs.GetDirectoryName(destinationPath), fs.GetFileName(destinationPath));
+				int destinationDirIndex = fs.GetMFTIndexByPathAndFileName(fs.GetFilePath(destinationPath), fs.GetFileName(destinationPath));
 				if (destinationDirIndex < 0)
 				{
 					result[0] = "Ошибка. Директория не найдена";
@@ -410,35 +410,37 @@ namespace FS_Emulator
 
 				return result;
 
-				string AnalyzePath(string pathToAnalizeOnBackSubstrings, string originPath)
+				
+			}
+
+			internal static string AnalyzePath(string pathToAnalizeOnBackSubstrings, string originPath)
+			{
+				originPath = originPath.ToNormalizedPath();
+				var backSubstr = "../";
+
+				// считаю кол-во вхождений в строке
+				var count = pathToAnalizeOnBackSubstrings
+							.Split(new string[] { backSubstr }, StringSplitOptions.None)
+							.Count()
+							- 1;
+				for (var i = 0; i < count; i++)
 				{
-					originPath = originPath.ToNormalizedPath();
-					var backSubstr = "../";
-
-					// считаю кол-во вхождений в строке
-					var count = pathToAnalizeOnBackSubstrings
-								.Split(new string[] { backSubstr }, StringSplitOptions.None)
-								.Count()
-								- 1;
-					for (var i = 0; i < count; i++)
-					{
-						originPath = fs.GetDirectoryName(originPath);
-					}
-					originPath = originPath.ToNormalizedPath();
-
-					string destination = originPath + pathToAnalizeOnBackSubstrings.Replace(backSubstr, "");
-					destination = new string(destination.Take(destination.Length - 1).ToArray());
-
-					return destination;
-
-					// Иду по строке, countBack = считаю "../" в начале. Получил любой другой символ - прекратил считать.
-					// for(var i=0; i< countBack; i++){ originPath = Path.GetDirectoryName(originPath);}
-					// string strToRemove = pathToAnalizeOnBackSubstrings.Substring(0, countBack * 3); // 3 is ../
-					// var betterPath = pathToAnalizeOnBackSubstrings.Remove(strToRemove); 
-					// var bestPath = originPath + betterPath;
-
-
+					originPath = fs.GetFilePath(originPath);
 				}
+				originPath = originPath.ToNormalizedPath();
+
+				string destination = originPath + pathToAnalizeOnBackSubstrings.Replace(backSubstr, "");
+				destination = new string(destination.Take(destination.Length - 1).ToArray());
+
+				return destination;
+
+				// Иду по строке, countBack = считаю "../" в начале. Получил любой другой символ - прекратил считать.
+				// for(var i=0; i< countBack; i++){ originPath = Path.GetDirectoryName(originPath);}
+				// string strToRemove = pathToAnalizeOnBackSubstrings.Substring(0, countBack * 3); // 3 is ../
+				// var betterPath = pathToAnalizeOnBackSubstrings.Remove(strToRemove); 
+				// var bestPath = originPath + betterPath;
+
+
 			}
 
 			internal static string[] OpenFile(string[] args)
@@ -677,7 +679,8 @@ namespace FS_Emulator
 				// Проверки...
 				// MoveFile
 				string fileName = arg[0];
-				string destPath = arg[1];
+				string destPathArg = arg[1].ToNormalizedPath();
+				string destPath = AnalyzePath(destPathArg, fs.GetFullFilePathByMFTIndex(thisDirIndex));
 				var res = new string[1];
 
 				int fileIndex = fs.GetMFTIndexOfExistingFileByParentDirAndFileName(thisDirIndex, fileName);
@@ -686,7 +689,7 @@ namespace FS_Emulator
 					res[0] = "Ошибка. Перемещаемый файл не существует";
 					return res;
 				}
-				var destDirIndex = fs.GetMFTIndexByPathAndFileName(fs.GetDirectoryName(destPath), fs.GetFileName(destPath));
+				var destDirIndex = fs.GetMFTIndexByPathAndFileName(fs.GetFilePath(destPath), fs.GetFileName(destPath));
 				if (destDirIndex < 0)
 				{
 					res[0] = "Ошибка. Путь не существует";
@@ -705,9 +708,11 @@ namespace FS_Emulator
 					return res;
 				}
 
-				fs.Move(fileIndex, destDirIndex);
+				fs.Move(fileIndex, thisDirIndex, destDirIndex);
 
-				throw new NotImplementedException();
+				res[0] = "Готово";
+				return res;
+
 			}
 
 			internal static string[] RemoveFile(string[] arg)

@@ -276,7 +276,7 @@ namespace FS_Emulator.FSTools
 			return UserCanReadFile(GetMFTRecordByIndex(fileIndex), userId);
 		}
 
-		internal string GetDirectoryName(string path)
+		internal string GetFilePath(string path)
 		{
 			if (path.Length <= 3)
 			{
@@ -346,9 +346,9 @@ namespace FS_Emulator.FSTools
 			}
 		}
 
-		internal string GetFullFilePathByMFTIndex(int thisDirIndex)
+		internal string GetFullFilePathByMFTIndex(int fileIndex)
 		{
-			byte[] record = GetMFTRecordByIndex(thisDirIndex);
+			byte[] record = GetMFTRecordByIndex(fileIndex);
 			string path = GetFullFilePathByMFTRecord(record);
 
 			return path;

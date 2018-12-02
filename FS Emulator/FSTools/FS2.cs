@@ -369,16 +369,88 @@ namespace FS_Emulator.FSTools
 			return GetIsFileExists(GetMFTRecordByIndex(fileIndex));
 		}
 
-		public void Move(int fileIndex, int destDirIndex)
+		public void Move(int fileIndex, int originDirIndex, int destDirIndex)
 		{
-
 			/*Да ну нафиг, если есть такое имя папки/файла - return FileAlreadyExists. 
 			 * Да, и для всех файлов заменить path, на новый путь (GetFullFileName(destDirIndex)).*/
 			/*Для файла (или для всех файлов, если это директория) заменить path на fullFileName(destDirIndex)*/
 			// я подобную рекурсию в удалении делал. В удалении юзера - особенно.
+			var oldPathPart = GetFilePath(fileIndex);
+			var newPathPart = GetFullFilePathByMFTIndex(destDirIndex);/*.ToNormalizedPath();*/
 
+			// Для всех файлов в директории: 
+			// Если это файл, то ReplacePathPart(replacedPath, partToReplaceOn); Если это Dir, то Для всех файлов в директории...
 
-			throw new NotImplementedException();
+			#region Изменяю path для папки и всех файлов в ней
+			ReplacePathPartOfForFileOrDir(fileIndex, oldPathPart, newPathPart);
+			#endregion
+
+			#region Удаляю запись о файле в originDir
+			var startPositionForOriginDir = GetMFTRecordOffsetByIndex(originDirIndex);
+			startPositionForOriginDir += MFTRecord.OffsetForData;
+			var fileSizeOfOriginDir = GetFileSize(originDirIndex);
+			var endPositionForOriginDir = startPositionForOriginDir + fileSizeOfOriginDir;
+
+			stream.Position = startPositionForOriginDir;
+			while (stream.Position < endPositionForOriginDir)
+			{
+				// блин, опять читаются нули
+				var headerBuf = new byte[FileHeader.SizeInBytes];
+				stream.Read(headerBuf, 0, headerBuf.Length);
+
+				var header = FileHeader.FromBytes(headerBuf);
+				if (header.IndexInMFT == fileIndex)
+				{
+					header.IndexInMFT = 0;
+
+					// смещаемся в потоке назад на 1 header, записываем новый header
+					stream.Position -= headerBuf.Length;
+					stream.Write(header.ToBytes(), 0, FileHeader.SizeInBytes);
+
+					break;
+				}
+			}
+			#endregion
+
+			#region Добавляю запись о файле в DestDir
+			AddFileHeaderToDir(destDirIndex, fileIndex);
+			#endregion
+
+		}
+
+		public void ReplacePathPartOfForFileOrDir(int fileIndex, string oldPart, string newPart)
+		{
+			var fileType = GetFileTypeByIndex(fileIndex);
+			if (fileType == FileType.Dir)
+			{
+				var headers = GetFileHeadersOfExistingFilesByDirIndex(fileIndex);
+				foreach (var header in headers)
+				{
+					var index = header.IndexInMFT;
+					ReplacePathPartOfForFileOrDir(index, oldPart, newPart);
+				}
+			}
+
+			// Получаю смещение; Получаю путь; Получаю обновленный путь; Записываю новый путь
+
+			var offset = GetMFTRecordOffsetByIndex(fileIndex);
+			offset += MFTRecord.OffsetForPath;
+			byte[] oldPathBytes = new byte[MFTRecord.LengthOfPath];
+
+			stream.Position = offset;
+			stream.Read(oldPathBytes, 0, MFTRecord.LengthOfPath);
+
+			string oldPath = oldPathBytes.ToASCIIString();
+			string newPath = oldPath.Replace(oldPart, newPart);
+			byte[] newPathBytes = newPath.ToBytes().TrimOrExpandTo(MFTRecord.LengthOfPath);
+
+			stream.Position = offset;
+			stream.Write(newPathBytes, 0, MFTRecord.LengthOfPath);
+		}
+
+		private string GetFilePath(int fileIndex)
+		{
+			return GetFilePath(GetFullFilePathByMFTIndex(fileIndex));
 		}
 
 		/// <summary>
